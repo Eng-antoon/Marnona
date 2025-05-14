@@ -62,6 +62,17 @@ const cache = {
   courseStats: { data: {}, timestamp: {} }
 };
 
+// Add dailyActivity to the cache system
+const cacheKeys = {
+  courses: 'courses',
+  sessions: 'sessions',
+  lecturesForCourse: 'lecturesForCourse_',
+  labsForCourse: 'labsForCourse_',
+  courseStats: 'courseStats_',
+  allLabs: 'allLabs',
+  dailyActivity: 'dailyActivity_'
+};
+
 // Batched query function
 export async function getBatchedData(collectionName, queryConstraints = [], batchSize = 50) {
   try {
@@ -384,34 +395,64 @@ export async function getCachedAllLabs(courses) {
   }
 }
 
-// Clear specific cache
-export function clearCache(cacheKey) {
+// Function to clear cache by key
+export function clearCache(key) {
+  if (!cacheKeys[key]) {
+    console.warn(`Unknown cache key: ${key}`);
+    return;
+  }
+  
+  const baseKey = cacheKeys[key];
+  
+  if (baseKey.endsWith('_')) {
+    // For keys that have dynamic parts (like courseId), clear all matching keys
+    Object.keys(sessionStorage).forEach(storedKey => {
+      if (storedKey.startsWith(baseKey)) {
+        sessionStorage.removeItem(storedKey);
+      }
+    });
+  } else {
+    // For simple keys, just remove the item
+    sessionStorage.removeItem(baseKey);
+  }
+}
+
+// Fetch with timeout to handle network issues more gracefully
+export async function fetchWithTimeout(promise, timeout = 10000) {
+  let timer;
   try {
-    console.log(`Clearing cache for: ${cacheKey}`);
+    const timeoutPromise = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error('Request timed out'));
+      }, timeout);
+    });
     
-    if (cacheKey === 'courses') {
-      cache.courses = { data: null, timestamp: 0 };
-    } else if (cacheKey === 'sessions') {
-      cache.sessions = { data: null, timestamp: 0 };
-    } else if (cacheKey === 'lectures') {
-      cache.lectures = { courseData: {}, timestamp: {} };
-    } else if (cacheKey === 'labs') {
-      cache.labs = { courseData: {}, timestamp: {} };
-    } else if (cacheKey === 'courseStats') {
-      cache.courseStats = { data: {}, timestamp: {} };
-    } else if (cacheKey === 'all') {
-      // Clear all caches
-      console.log("Clearing all caches");
-      cache.courses = { data: null, timestamp: 0 };
-      cache.sessions = { data: null, timestamp: 0 };
-      cache.lectures = { courseData: {}, timestamp: {} };
-      cache.labs = { courseData: {}, timestamp: {} };
-      cache.courseStats = { data: {}, timestamp: {} };
-    } else {
-      console.warn(`Unknown cache key: ${cacheKey}`);
-    }
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timer);
+    return result;
   } catch (error) {
-    console.error(`Error clearing cache for ${cacheKey}:`, error);
+    clearTimeout(timer);
+    throw error;
+  }
+}
+
+// Wrapper to handle failed fetches by using cached data as fallback
+export async function fetchWithFallback(fetchFn, cacheKey, params = {}) {
+  try {
+    // Try to fetch fresh data
+    return await fetchWithTimeout(fetchFn(params));
+  } catch (error) {
+    console.error(`Error fetching ${cacheKey}:`, error);
+    
+    // Try to get from cache
+    const cachedData = sessionStorage.getItem(cacheKey);
+    if (cachedData) {
+      console.log(`Using cached data for ${cacheKey}`);
+      return JSON.parse(cachedData);
+    }
+    
+    // If no cache, rethrow the error
+    throw error;
   }
 }
 

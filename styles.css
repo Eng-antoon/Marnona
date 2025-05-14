@@ -219,6 +219,8 @@ h1 {
   border-radius: var(--border-radius);
   padding: 20px;
   box-shadow: var(--shadow);
+  min-height: 350px;
+  position: relative;
 }
 
 .chart-container h3 {
@@ -701,7 +703,12 @@ tbody td {
   }
   
   .course-card {
-    width: 100%;
+    width: calc(50% - 20px);
+  }
+  
+  .chart-container {
+    min-height: 300px;
+    margin-bottom: 20px;
   }
 }
 
@@ -711,68 +718,146 @@ tbody td {
   }
   
   .sidebar {
-    width: 100%;
-    height: auto;
-    min-height: 70px;
-    padding: 10px 15px;
-    flex-direction: column;
-    position: sticky;
+    position: fixed;
     top: 0;
-    z-index: 100;
+    left: -100%;
+    width: 80%;
+    height: 100%;
+    z-index: 1000;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+    background-color: var(--primary-color);
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  .sidebar.active {
+    left: 0;
   }
   
   .sidebar-header {
+    padding: 15px;
     display: flex;
     align-items: center;
-    border-bottom: none;
-    margin-bottom: 0;
-    padding-bottom: 0;
+    justify-content: space-between;
   }
   
   .profile-image {
-    width: 40px;
-    height: 40px;
-    margin-right: 10px;
-    margin-bottom: 0;
+    width: 50px;
+    height: 50px;
   }
   
   .sidebar-nav {
-    display: flex;
-    justify-content: center;
-    margin: 0 auto;
+    padding: 0 15px;
+    margin-top: 10px;
   }
   
   .sidebar-nav ul {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
   }
   
   .sidebar-nav li {
-    padding: 0.5rem 0.75rem;
-    margin: 0 5px;
+    padding: 12px 15px;
+    margin: 5px 0;
+    border-radius: 10px;
   }
   
   .sidebar-nav li span {
-    display: none;
+    display: inline-block;
+    margin-left: 10px;
   }
   
   .sidebar-footer {
-    display: none;
+    position: relative;
+    bottom: auto;
+    width: auto;
+    margin-top: 20px;
   }
   
   .main-content {
     margin-left: 0;
-    padding: 1rem;
+    width: 100%;
+    padding: 15px;
   }
   
   .dashboard-stats {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr 1fr;
   }
   
   .courses-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .course-card {
+    width: 100%;
+  }
+  
+  .hamburger-btn {
+    display: block;
+    position: fixed;
+    top: 10px;
+    right: 15px; /* Keep on the right side */
+    z-index: 1001;
+  }
+  
+  .chart-container {
+    min-height: 250px;
+  }
+  
+  /* Improve form fields on mobile */
+  .form-group {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .form-group label {
+    margin-bottom: 5px;
+    width: 100%;
+  }
+  
+  input, select, textarea {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  
+  /* Improve modals on mobile */
+  .modal-content {
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 15px;
+  }
+  
+  /* Improve tables on mobile */
+  .table-container {
+    overflow-x: auto;
+  }
+  
+  table {
+    min-width: 600px;
+  }
+  
+  /* Fix study activity chart on mobile */
+  #activity-chart {
+    height: 250px !important;
+  }
+  
+  /* Improve course cards on mobile */
+  .course-card {
+    padding: 15px;
+  }
+  
+  .course-name {
+    font-size: 1.2rem;
+  }
+  
+  .course-description {
+    font-size: 0.9rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
@@ -783,33 +868,37 @@ tbody td {
   
   .courses-controls {
     flex-direction: column;
-    align-items: flex-start;
+    gap: 10px;
   }
   
   .search-container {
     width: 100%;
-    max-width: none;
-    margin-bottom: 1rem;
+    margin-bottom: 10px;
   }
   
   .filter-container {
     width: 100%;
-    margin-bottom: 1rem;
   }
   
   #add-course-btn {
     width: 100%;
-    margin-left: 0;
   }
   
   .stat-card {
-    padding: 1rem;
+    margin-bottom: 15px;
+  }
+  
+  .stat-card i {
+    font-size: 1.5rem;
+  }
+  
+  .stat-card p {
+    font-size: 0.9rem;
   }
   
   .modal-content {
-    width: 90%;
-    max-width: none;
-    padding: 1rem;
+    width: 95%;
+    padding: 12px;
   }
   
   .activity-item {
@@ -818,33 +907,103 @@ tbody td {
   }
   
   .activity-time {
-    margin-top: 5px;
+    align-self: flex-end;
   }
   
-  /* Table responsive behavior */
   .table-container {
-    overflow-x: auto;
+    margin: 0 -15px;
+    width: calc(100% + 30px);
   }
   
-  table {
-    min-width: 600px;
+  /* Override any fixed heights in the charts */
+  .chart-container {
+    height: auto !important;
+    min-height: 200px;
   }
   
-  /* AI chat responsive styles */
-  .ai-chat-container {
-    height: calc(100vh - 200px);
+  canvas {
+    max-height: 300px !important;
   }
   
-  .ai-message, .user-message {
+  /* Make buttons more touch-friendly */
+  .btn, button {
+    padding: 12px 20px;
+    font-size: 16px;
+    min-height: 48px;
+  }
+  
+  /* Fix for modal actions */
+  .modal-footer {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .modal-footer .btn {
+    width: 100%;
+  }
+  
+  /* Improve form layout */
+  .form-row {
     flex-direction: column;
   }
   
-  .ai-avatar, .user-avatar {
-    margin-bottom: 10px;
+  .form-row .form-group {
+    width: 100%;
+    margin-right: 0;
   }
   
-  .message-content {
-    max-width: 100%;
+  /* Fix celebration modal */
+  .celebration-message {
+    font-size: 1.5rem;
+    padding: 1.5rem;
+  }
+  
+  .celebration-icon {
+    font-size: 3rem;
+  }
+}
+
+/* Add overlay for mobile sidebar */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  width: 100vw;
+  height: 100vh;
+}
+
+.sidebar-overlay.active {
+  display: block;
+}
+
+/* Fix for iPhone notch */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .sidebar {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .hamburger-btn {
+    top: calc(10px + env(safe-area-inset-top));
+  }
+  
+  .main-content {
+    padding-top: calc(15px + env(safe-area-inset-top));
+  }
+}
+
+/* Fix iPhone X bottom bar area */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .main-content {
+    padding-bottom: calc(15px + env(safe-area-inset-bottom));
+  }
+  
+  .modal-content {
+    margin-bottom: env(safe-area-inset-bottom);
   }
 }
 
@@ -1083,6 +1242,8 @@ h1 {
     padding: 1.5rem;
     border-radius: var(--border-radius);
     box-shadow: var(--shadow);
+    min-height: 350px;
+    position: relative;
 }
 
 .chart-container h3 {
@@ -2345,25 +2506,25 @@ th, td {
 
 /* Enhanced Hamburger Menu Styles */
 .hamburger-btn {
-    display: none;
-    background: transparent;
+    display: block;
+    position: fixed;
+    top: 10px;
+    right: 15px; /* Keep on the right side */
+    z-index: 1001;
+    background: transparent !important; /* Force transparent background */
     border: none;
-    color: white;
+    color: black;
     font-size: 1.5rem;
     cursor: pointer;
     padding: 10px;
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    z-index: 100;
-    transition: all 0.3s ease;
     width: 44px;
     height: 44px;
-    border-radius: 50%;
+    border-radius: 50%; /* Make it a perfect circle */
+    transition: all 0.3s ease;
 }
 
 .hamburger-btn:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: transparent !important; /* Keep transparent on hover */
 }
 
 .hamburger-btn:active {
@@ -2373,55 +2534,55 @@ th, td {
 /* Mobile Navigation */
 @media (max-width: 768px) {
     .sidebar {
-        width: 100%;
-        height: auto;
-        min-height: 70px;
-        padding: 10px 15px;
-        flex-direction: column;
-        position: sticky;
+        width: 270px;
+        height: 100%;
+        position: fixed;
         top: 0;
-        z-index: 100;
+        right: -270px; /* Start off-screen to the right */
+        z-index: 1000;
+        transition: right 0.3s ease;
+        overflow-y: auto;
+        background-color: var(--primary-color);
+        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+        padding-top: 60px; /* Space for the hamburger button */
     }
     
-    .hamburger-btn {
-        display: block;
+    .sidebar.active {
+        right: 0; /* Slide in from the right */
+        left: auto; /* Override any left positioning */
     }
     
-    .sidebar-header {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        margin-bottom: 0;
-        padding-bottom: 0;
-        width: 100%;
-        border-bottom: none;
-    }
-    
-    .sidebar-header h2 {
-        font-size: 1.2rem;
-        margin: 0;
-    }
-    
+    /* Show the sidebar navigation directly in the sidebar when active */
     .sidebar-nav {
-        margin-top: 15px;
+        display: block; /* Always display - visibility controlled by sidebar */
+        margin-top: 0;
         width: 100%;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        z-index: 99;
+        padding: 10px;
+    }
+    
+    /* No need for animation since the entire sidebar slides in */
+    .sidebar-nav.active {
+        display: block;
+        animation: none;
     }
     
     .sidebar-nav ul {
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: 10px;
     }
     
     .sidebar-nav li {
         padding: 12px 15px;
-        margin: 0;
+        margin: 5px 0;
         display: flex;
         align-items: center;
+        border-radius: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .sidebar-nav li:last-child {
+        border-bottom: none;
     }
     
     .sidebar-nav li span {
@@ -2432,17 +2593,72 @@ th, td {
     .main-content {
         padding: 15px;
         margin-left: 0;
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
     }
     
-    /* Animation for sidebar toggle */
-    .sidebar-nav.active {
-        animation: slideDown 0.3s ease forwards;
+    /* Fix for sidebar not being tappable in mobile view */
+    .sidebar.active {
+        width: 100%;
+        min-height: auto;
+        margin-bottom: 10px;
+        border-radius: 0 0 10px 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Don't show the streak counter in the sidebar */
+    .sidebar .sidebar-footer {
+        display: none;
+    }
+    
+    /* Create a new footer with the streak and quote */
+    .mobile-footer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 15px;
+        margin-top: 30px;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    .mobile-footer .inspiration-quote {
+        font-style: italic;
+        margin-bottom: 10px;
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    .mobile-footer .streak-counter {
+        background-color: #7b2cbf;
+        color: white;
+        border-radius: 20px;
+        padding: 5px 15px;
+        display: inline-block;
+    }
+    
+    .mobile-footer .motivation-text {
+        margin-bottom: 10px;
+        font-size: 0.9rem;
+    }
+    
+    /* Make the overlay cover the full screen */
+    .sidebar-overlay.active {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 50;
+        display: block;
     }
     
     @keyframes slideDown {
         from {
             opacity: 0;
-            transform: translateY(-10px);
+            transform: translateY(-20px);
         }
         to {
             opacity: 1;
@@ -2454,107 +2670,130 @@ th, td {
 /* Improved mobile dashboard styles */
 .mobile-view .dashboard-greeting {
     padding: 15px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
+    border-radius: 10px;
 }
 
 .mobile-view .dashboard-greeting h2 {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
+    margin-bottom: 5px;
 }
 
 .mobile-view .dashboard-stats {
-    gap: 15px;
-    margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
 }
 
 .mobile-view .stat-card {
-    padding: 15px;
+    padding: 12px;
+    min-height: auto;
 }
 
 .mobile-view .stat-card p {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
 }
 
 .mobile-view .dashboard-charts {
-    gap: 20px;
+    flex-direction: column;
+    margin-top: 15px;
 }
 
 .mobile-view .chart-container {
-    padding: 15px;
-    margin-bottom: 20px;
-}
-
-.course-meta {
-    margin-top: 0.5rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.course-category {
-    background-color: var(--primary-light);
-    color: var(--primary-color);
-    padding: 0.25rem 0.5rem;
-    border-radius: 1rem;
-    font-size: 0.8rem;
-    display: inline-block;
-}
-
-.filter-notice {
-  background-color: var(--light-gray);
-  border-radius: var(--border-radius);
-  padding: 10px 15px;
-  margin: 10px 0 20px;
-  display: flex;
-  align-items: center;
-  border-left: 4px solid var(--primary-color);
-}
-
-.filter-notice p {
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.filter-notice i {
-  margin-right: 8px;
-  color: var(--primary-color);
-}
-
-.sessions-filter {
-  margin-bottom: 20px;
-  background-color: var(--light-gray);
-  padding: 15px;
-  border-radius: var(--border-radius);
-}
-
-.filter-wrap {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.filter-wrap label {
-  font-weight: 500;
-  margin-right: 5px;
-}
-
-.filter-wrap select {
-  padding: 8px 12px;
-  border-radius: var(--border-radius);
-  border: 1px solid var(--border-color);
-  min-width: 200px;
-  background-color: white;
-}
-
-@media (max-width: 768px) {
-  .filter-wrap {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .filter-wrap select {
     width: 100%;
-  }
+    margin-bottom: 15px;
+    min-height: 250px;
+    border-radius: 10px;
+    padding: 15px;
+}
+
+/* Better scrolling on mobile */
+.mobile-view {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Fix input zoom issues on iOS */
+.mobile-view input,
+.mobile-view select,
+.mobile-view textarea {
+    font-size: 16px !important;
+}
+
+/* Fix mobile form fields */
+.mobile-view .form-group {
+    margin-bottom: 15px;
+}
+
+.mobile-view label {
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+/* Improve course cards on mobile */
+.mobile-view .courses-grid {
+    grid-template-columns: 1fr;
+}
+
+.mobile-view .course-card {
+    padding: 15px;
+    margin-bottom: 10px;
+}
+
+/* Fix study sessions table */
+.mobile-view .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 10px;
+}
+
+.mobile-view table {
+    min-width: 600px;
+}
+
+/* Make buttons more touchable */
+.mobile-view button,
+.mobile-view .btn,
+.mobile-view .action-btn {
+    padding: 10px 15px;
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* Fix zoom and tap issues */
+.mobile-view * {
+    touch-action: manipulation;
+}
+
+/* Adjust modal positioning for iOS */
+.mobile-view .modal.active {
+    align-items: flex-start;
+    padding-top: 50px;
+}
+
+.mobile-view .modal-content {
+    width: 90%;
+    max-height: 80vh;
+    border-radius: 10px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+}
+
+/* Mobile specific menu improvements */
+.mobile-view .sidebar {
+    background: linear-gradient(135deg, #9b4dca, #6b2fad);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+/* Fix for iPhone notch */
+@supports (padding-top: env(safe-area-inset-top)) {
+    .mobile-view .sidebar {
+        padding-top: env(safe-area-inset-top);
+    }
+    
+    .mobile-view .main-content {
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
 }
 
 /* Add search hint styling */
@@ -2789,4 +3028,228 @@ th, td {
 .celebration-button:hover {
   transform: scale(1.05);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Course meta styles */
+.course-meta {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.course-category {
+    background-color: var(--primary-light);
+    color: var(--primary-color);
+    padding: 0.25rem 0.5rem;
+    border-radius: 1rem;
+    font-size: 0.8rem;
+    display: inline-block;
+}
+
+.filter-notice {
+    background-color: var(--light-gray);
+    border-radius: var(--border-radius);
+    padding: 10px 15px;
+    margin: 10px 0 20px;
+    display: flex;
+    align-items: center;
+    border-left: 4px solid var(--primary-color);
+}
+
+.filter-notice p {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.filter-notice i {
+    margin-right: 8px;
+    color: var(--primary-color);
+}
+
+.sessions-filter {
+    margin-bottom: 20px;
+    background-color: var(--light-gray);
+    padding: 15px;
+    border-radius: var(--border-radius);
+}
+
+.filter-wrap {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.filter-wrap label {
+    font-weight: 500;
+    margin-right: 5px;
+}
+
+.filter-wrap select {
+    padding: 8px 12px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    min-width: 200px;
+    background-color: white;
+}
+
+@media (max-width: 768px) {
+    .filter-wrap {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .filter-wrap select {
+        width: 100%;
+    }
+}
+
+/* iOS specific fixes */
+.ios-device .modal-content {
+    -webkit-overflow-scrolling: touch;
+}
+
+.ios-device .sidebar.active {
+    height: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+}
+
+.ios-device .main-content {
+    height: calc(100 * var(--vh, 1vh));
+    overflow-y: auto;
+}
+
+.ios-device input[type="date"],
+.ios-device input[type="time"],
+.ios-device select {
+    font-size: 16px !important;
+    height: 44px;
+}
+
+.ios-device button,
+.ios-device .btn,
+.ios-device .action-btn {
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 16px;
+}
+
+.ios-device .table-container {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Fix for iOS fixed elements disappearing during scroll */
+.ios-device * {
+    transform: translateZ(0);
+}
+
+/* Fix for iOS input zooming */
+.ios-device .form-group input,
+.ios-device .form-group select,
+.ios-device .form-group textarea {
+    font-size: 16px !important;
 } 
+
+/* Mobile Footer */
+.mobile-footer {
+    display: none; /* Hide by default on desktop */
+}
+
+@media (max-width: 768px) {
+    .mobile-footer {
+        display: flex; /* Show on mobile */
+    }
+}
+
+.mobile-view .dashboard-greeting,
+.mobile-view .dashboard-stats,
+.mobile-view .dashboard-charts,
+.mobile-view .recent-activity {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.mobile-view .chart-container {
+    width: 100%;
+    height: 250px;
+    padding: 10px;
+    overflow-x: hidden;
+}
+
+/* Ensure all content fits mobile width */
+.mobile-view .content-section {
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+
+/* Ensure hamburger button is visible and accessible */
+@media (max-width: 768px) {
+    .hamburger-btn {
+        z-index: 1001;
+        display: block;
+    }
+    
+    .sidebar.active {
+        min-height: auto;
+    }
+    
+    .main-content {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        box-sizing: border-box;
+        padding: 15px;
+    }
+}
+
+/* Mobile Navigation Modal Improvements */
+@media (max-width: 768px) {
+  /* Ensure the sidebar nav and all nav items are visible without scrolling */
+  .sidebar.active .sidebar-nav {
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding-bottom: 20px;
+    margin-top: 10px;
+    box-shadow: none;
+  }
+  
+  /* Make the sidebar header visible in the modal */
+  .sidebar.active .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    margin-bottom: 15px;
+    padding-top: 20px;
+  }
+  
+  /* Ensure the sidebar animation is smooth */
+  .sidebar {
+    transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  /* Ensure the hamburger menu stays in place and visible */
+  .hamburger-btn {
+    z-index: 1002; /* Above the sidebar */
+    transition: all 0.3s ease;
+    top: 15px;
+    right: 15px;
+    position: fixed;
+    background: transparent !important; /* Force transparent background */
+  }
+  
+  /* Change the hamburger color when sidebar is open */
+  .sidebar.active ~ .hamburger-btn,
+  .sidebar.active + .hamburger-btn {
+    background-color: transparent !important; /* Keep transparent when sidebar is open */
+  }
+}

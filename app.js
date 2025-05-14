@@ -92,7 +92,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add a slight delay to ensure all elements are fully loaded
     setTimeout(() => {
         updateUIWithData();
+        
+        // Use the URL hash to determine which section to show
+        handleUrlHash();
+        
+        // Add event listeners for navigation to update URL hash
+        setupHashNavigation();
     }, 500);
+    
+    // Listen for browser navigation (back/forward)
+    window.addEventListener('popstate', handleUrlHash);
 });
 
 // Initialize the application
@@ -112,11 +121,24 @@ async function initializeApp() {
         await fetchStudySessions();
         setupEventListeners();
         setupMobileResponsiveness();
+        
+        // Initialize dashboard with proper loading states
         initializeDashboard();
-        updateStats(); // Call updateStats to ensure dashboard values are updated
+        
+        // Ensure stats are updated
+        updateStats();
+        
+        // Update UI components
         updateUIWithData();
+        
+        // Check URL hash for navigation
+        handleUrlHash();
+        
+        // Apply iOS specific fixes
+        applyIOSFixes();
     } catch (error) {
         console.error('Error initializing app:', error);
+        showErrorMessage('Failed to initialize the app. Please try refreshing the page.');
     }
 }
 
@@ -130,11 +152,8 @@ function setupMobileResponsiveness() {
         hamburgerBtn.innerHTML = '<i class="fas fa-bars"></i>';
         hamburgerBtn.setAttribute('aria-label', 'Toggle navigation menu');
         
-        // Add hamburger button to the sidebar
-        const sidebar = document.querySelector('.sidebar');
-        if (sidebar) {
-            sidebar.insertBefore(hamburgerBtn, sidebar.firstChild);
-        }
+        // Add hamburger button to the body instead of the sidebar to ensure top right positioning
+        document.body.appendChild(hamburgerBtn);
     }
     
     // Setup hamburger menu event listener
@@ -159,6 +178,71 @@ function setupMobileResponsiveness() {
         });
     });
     
+    // Add click outside to close sidebar
+    document.addEventListener('click', closeSidebarOnClickOutside);
+    
+    // Handle orientation change
+    window.addEventListener('orientationchange', handleOrientationChange);
+    
+    // Create sidebar overlay if it doesn't exist
+    if (!document.querySelector('.sidebar-overlay')) {
+        const overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        document.body.appendChild(overlay);
+        
+        // Add click event to close sidebar when overlay is clicked
+        overlay.addEventListener('click', closeSidebar);
+    }
+    
+    // Sync streak counts between sidebar and mobile footer
+    function syncStreakCount() {
+        const sidebarStreakCount = document.getElementById('streak-count');
+        const mobileStreakCount = document.getElementById('mobile-streak-count');
+        
+        if (sidebarStreakCount && mobileStreakCount) {
+            // Initial sync
+            mobileStreakCount.textContent = sidebarStreakCount.textContent;
+            
+            // Set up a mutation observer to keep them in sync
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                        mobileStreakCount.textContent = sidebarStreakCount.textContent;
+                    }
+                });
+            });
+            
+            // Observe the sidebar streak count for changes
+            observer.observe(sidebarStreakCount, { 
+                characterData: true, 
+                childList: true,
+                subtree: true 
+            });
+        }
+    }
+    
+    // Call the sync function
+    syncStreakCount();
+    
+    // Fix width constraints for mobile devices
+    function fixMobileWidth() {
+        // Ensure content doesn't overflow the viewport
+        document.documentElement.style.setProperty('--max-mobile-width', window.innerWidth + 'px');
+        
+        // Add viewport meta tag if not present
+        if (!document.querySelector('meta[name="viewport"]')) {
+            const meta = document.createElement('meta');
+            meta.name = 'viewport';
+            meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+            document.head.appendChild(meta);
+        }
+    }
+    
+    // Call width fix on load and resize
+    fixMobileWidth();
+    window.addEventListener('resize', fixMobileWidth);
+    
+    // Handle resize events
     const handleResize = () => {
         try {
             const isMobile = window.innerWidth <= 768;
@@ -203,222 +287,410 @@ function setupMobileResponsiveness() {
                     });
                 }
                 
-                // Only set display property if sidebarNav exists and the hamburger menu is visible
-                if (sidebarNav) {
-                    const hamburgerBtn = document.getElementById('hamburger-menu');
-                    // Initially hide sidebar navigation in mobile view if hamburger menu exists
-                    if (hamburgerBtn && hamburgerBtn.style.display !== 'none') {
-                        sidebarNav.style.display = 'none';
-                        sidebarNav.classList.remove('active');
-                    }
+                // Always close sidebar when switching to mobile
+                if (sidebarNav && sidebarNav.classList.contains('active')) {
+                    // Keep sidebar open if it was active
+                } else {
+                    closeSidebar();
                 }
                 
-                // Show hamburger button
-                const hamburgerBtn = document.getElementById('hamburger-menu');
-                if (hamburgerBtn) {
-                    hamburgerBtn.style.display = 'block';
+                // Add touch feedback to navigation items
+                navItems.forEach(item => {
+                    item.addEventListener('touchstart', function() {
+                        this.classList.add('touch-active');
+                    });
                     
-                    // Ensure icon is set to bars
-                    const hamburgerIcon = hamburgerBtn.querySelector('i');
-                    if (hamburgerIcon) {
-                        hamburgerIcon.className = 'fas fa-bars';
-                    }
-                }
+                    item.addEventListener('touchend', function() {
+                        this.classList.remove('touch-active');
+                    });
+                });
                 
-                // Adjust chart options for mobile view
-                if (window.activityChart) {
-                    window.activityChart.options.maintainAspectRatio = false;
-                    window.activityChart.options.legend.display = false;
-                    window.activityChart.update();
-                }
+                // Adjust modal positions for mobile
+                adjustModalsForMobile();
                 
-                if (window.progressChart) {
-                    window.progressChart.options.maintainAspectRatio = false;
-                    if (window.progressChart.options && window.progressChart.options.legend) {
-                        window.progressChart.options.legend.display = false;
-                    }
-                    window.progressChart.update();
-                }
+                // Optimize charts for mobile
+                adjustChartsForMobile();
                 
-                // Handle distribution chart for mobile view
-                if (window.distributionChart) {
-                    window.distributionChart.options.maintainAspectRatio = false;
-                    if (window.distributionChart.options && window.distributionChart.options.plugins && 
-                        window.distributionChart.options.plugins.legend) {
-                        window.distributionChart.options.plugins.legend.display = false;
-                    }
-                    window.distributionChart.update();
-                }
+                // Adjust forms for mobile
+                adjustFormsForMobile();
             } else {
-                // Reset to desktop view
+                // Desktop view
                 document.body.classList.remove('mobile-view');
                 
-                // Remove any click outside listener
-                document.removeEventListener('click', closeSidebarOnClickOutside);
-                
-                // Hide hamburger button
-                const hamburgerBtn = document.getElementById('hamburger-menu');
-                if (hamburgerBtn) {
-                    hamburgerBtn.style.display = 'none';
-                }
-                
-                // Always show sidebar navigation in desktop view if it exists
-                if (sidebarNav) {
-                    sidebarNav.style.display = 'block';
-                    sidebarNav.classList.remove('active');
-                }
-                
-                // Restore sidebar layout
+                // Reset sidebar styles for desktop
                 sidebar.style.flexDirection = '';
+                sidebar.style.width = '';
                 
-                // Reset chart options for desktop view
-                if (window.activityChart) {
-                    window.activityChart.options.maintainAspectRatio = true;
-                    window.activityChart.options.legend.display = true;
-                    window.activityChart.update();
+                if (sidebarNav) {
+                    sidebarNav.classList.remove('active');
+                    sidebarNav.style.display = '';
                 }
                 
-                if (window.progressChart) {
-                    window.progressChart.options.maintainAspectRatio = true;
-                    if (window.progressChart.options && window.progressChart.options.legend) {
-                        window.progressChart.options.legend.display = true;
-                    }
-                    window.progressChart.update();
+                // Reset content styles
+                if (mainContent) {
+                    mainContent.style.marginLeft = '';
                 }
                 
-                // Handle distribution chart if it exists
-                if (window.distributionChart) {
-                    window.distributionChart.options.maintainAspectRatio = true;
-                    if (window.distributionChart.options && window.distributionChart.options.plugins && 
-                        window.distributionChart.options.plugins.legend) {
-                        window.distributionChart.options.plugins.legend.display = true;
-                    }
-                    window.distributionChart.update();
-                }
+                // Reset modals for desktop
+                adjustModalsForDesktop();
+                
+                // Reset charts for desktop
+                adjustChartsForDesktop();
+                
+                // Reset forms for desktop
+                adjustFormsForDesktop();
             }
             
-            // Adjust modal positions for mobile
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-                if (modal.classList.contains('active')) {
-                    const modalContent = modal.querySelector('.modal-content');
-                    if (modalContent) {
-                        modalContent.style.maxHeight = isMobile ? 
-                            `${window.innerHeight * 0.9}px` : '';
-                        modalContent.style.overflowY = isMobile ? 
-                            'auto' : '';
-                    }
-                }
-            });
+            // Always update chart responsiveness on resize
+            updateChartsResponsiveness();
         } catch (error) {
             console.error('Error in handleResize function:', error);
         }
     };
     
-    // Handle resize events
-    window.removeEventListener('resize', handleResize); // Remove existing listener
-    window.addEventListener('resize', handleResize);
+    // Handle resize events with debouncing
+    let resizeTimeout;
+    window.removeEventListener('resize', debouncedResize); // Remove existing listener
+    
+    function debouncedResize() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(handleResize, 250); // Debounce resize events
+    }
+    
+    window.addEventListener('resize', debouncedResize);
     
     // Initial call on load
     handleResize();
 }
 
-// Function to initialize the activity chart on the dashboard
-async function initializeActivityChart() {
-    try {
-        // Get the canvas element and check if it exists
-        const canvasElement = document.getElementById('activity-chart');
-        if (!canvasElement) {
-            console.warn('Activity chart canvas not found in the DOM');
-            return;
+// Function to adjust modals for mobile
+function adjustModalsForMobile() {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.style.width = '90%';
+            modalContent.style.maxHeight = '80vh';
+            modalContent.style.overflowY = 'auto';
+            modalContent.style.padding = '15px';
         }
-        
-        // Get data for chart
-        const sessions = await fetchStudySessions();
-        
-        // Process data for weekly activity chart
-        const today = new Date();
-        const lastWeekDates = [];
-        
-        // Generate the last 7 days (including today)
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date(today);
-            date.setDate(today.getDate() - i);
-            lastWeekDates.push(date);
+    });
+}
+
+// Function to adjust modals for desktop
+function adjustModalsForDesktop() {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.style.width = '';
+            modalContent.style.maxHeight = '';
+            modalContent.style.overflowY = '';
+            modalContent.style.padding = '';
         }
-        
-        // Format dates as labels and count study hours per day
-        const labels = lastWeekDates.map(date => {
-            const options = { weekday: 'short' };
-            return new Intl.DateTimeFormat('en-US', options).format(date);
-        });
-        
-        const studyHoursData = lastWeekDates.map(date => {
-            const sessionsOnDate = sessions.filter(session => {
-                const sessionDate = new Date(session.date);
-                return sessionDate.toDateString() === date.toDateString();
-            });
+    });
+}
+
+// Function to adjust charts for mobile
+function adjustChartsForMobile() {
+    // Update chart options for mobile
+    if (window.activityChart) {
+        window.activityChart.options.maintainAspectRatio = false;
+        window.activityChart.options.plugins.legend.position = 'bottom';
+        window.activityChart.options.plugins.legend.display = true;
+        window.activityChart.update();
+    }
+    
+    if (window.courseDistributionChart) {
+        window.courseDistributionChart.options.maintainAspectRatio = false;
+        window.courseDistributionChart.options.plugins.legend.position = 'bottom';
+        window.courseDistributionChart.update();
+    }
+    
+    // Add min-height to chart containers
+    document.querySelectorAll('.chart-container').forEach(container => {
+        container.style.minHeight = '250px';
+    });
+}
+
+// Function to adjust charts for desktop
+function adjustChartsForDesktop() {
+                if (window.activityChart) {
+                    window.activityChart.options.maintainAspectRatio = true;
+        window.activityChart.options.plugins.legend.position = 'top';
+                    window.activityChart.update();
+                }
+                
+    if (window.courseDistributionChart) {
+        window.courseDistributionChart.options.maintainAspectRatio = true;
+        window.courseDistributionChart.options.plugins.legend.position = 'right';
+        window.courseDistributionChart.update();
+    }
+    
+    // Reset chart container heights
+    document.querySelectorAll('.chart-container').forEach(container => {
+        container.style.minHeight = '';
+    });
+}
+
+// Function to adjust forms for mobile
+function adjustFormsForMobile() {
+    // Make form elements full width on mobile
+    document.querySelectorAll('input, select, textarea').forEach(element => {
+        element.style.width = '100%';
+        element.style.boxSizing = 'border-box';
+    });
+    
+    // Adjust form groups to be vertical on mobile
+    document.querySelectorAll('.form-group').forEach(group => {
+        group.style.flexDirection = 'column';
+        group.style.marginBottom = '15px';
+    });
+    
+    // Adjust button sizing
+    document.querySelectorAll('.btn').forEach(btn => {
+        btn.style.padding = '12px 20px';
+        btn.style.fontSize = '16px';
+    });
+}
+
+// Function to adjust forms for desktop
+function adjustFormsForDesktop() {
+    // Reset form element widths
+    document.querySelectorAll('input, select, textarea').forEach(element => {
+        element.style.width = '';
+        element.style.boxSizing = '';
+    });
+    
+    // Reset form group layout
+    document.querySelectorAll('.form-group').forEach(group => {
+        group.style.flexDirection = '';
+        group.style.marginBottom = '';
+    });
+    
+    // Reset button sizing
+    document.querySelectorAll('.btn').forEach(btn => {
+        btn.style.padding = '';
+        btn.style.fontSize = '';
+    });
+}
+
+// Function to update chart responsiveness
+function updateChartsResponsiveness() {
+    if (window.activityChart) {
+        window.activityChart.resize();
+    }
+    if (window.courseDistributionChart) {
+        window.courseDistributionChart.resize();
+    }
+    // Update any other charts as needed
+}
+
+// Improved function to handle orientation change
+function handleOrientationChange() {
+    const isMobile = window.innerWidth <= 768;
+    
+    if (isMobile) {
+        // Force redraw of charts after orientation change
+        setTimeout(() => {
+            updateChartsResponsiveness();
             
-            const totalMinutes = sessionsOnDate.reduce((sum, session) => {
-                return sum + (parseInt(session.duration) || 0);
-            }, 0);
-            
-            return totalMinutes / 60; // Convert minutes to hours
-        });
-        
-        try {
-            // Get the canvas context
-            const ctx = canvasElement.getContext('2d');
-            
-            // Check if chart already exists and destroy it
-            if (window.activityChart) {
-                window.activityChart.destroy();
+            // Ensure sidebar is closed in mobile landscape
+            if (window.innerWidth < window.innerHeight) {
+                // portrait
+                closeSidebar();
             }
             
-            // Create the chart
-            window.activityChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Study Hours',
-                        data: studyHoursData,
-                        backgroundColor: 'rgba(106, 76, 147, 0.7)',
-                        borderColor: 'rgba(106, 76, 147, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: window.innerWidth > 768, // Adjust aspect ratio based on screen size
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: window.innerWidth > 576,
-                                text: 'Hours'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: window.innerWidth > 576,
-                                text: 'Day'
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: window.innerWidth > 768
-                        }
-                    }
-                }
-            });
-        } catch (ctxError) {
-            console.error('Error initializing chart context:', ctxError);
-        }
-    } catch (error) {
-        console.error('Error initializing activity chart:', error);
+            // Re-adjust modals and forms
+            adjustModalsForMobile();
+            adjustFormsForMobile();
+        }, 300); // Small delay to allow UI to settle
     }
+}
+
+// Function to initialize the activity chart on the dashboard
+async function initializeActivityChart() {
+  try {
+    // Get the canvas element and check if it exists
+    const canvasElement = document.getElementById('activity-chart');
+    if (!canvasElement) {
+      console.warn('Activity chart canvas not found in the DOM');
+      return;
+    }
+    
+    // If we don't have sessions data, fetch it
+    if (!allSessions || !allSessions.length) {
+      try {
+        await fetchStudySessions();
+      } catch (error) {
+        console.error('Error fetching study sessions for activity chart:', error);
+      }
+    }
+    
+    if (!allSessions || !allSessions.length) {
+      console.warn('No sessions data available for activity chart');
+      canvasElement.parentElement.innerHTML = `
+        <h3>Study Activity</h3>
+        <div class="no-data-message">
+          <p>No study sessions found. Start studying to see your activity!</p>
+        </div>
+      `;
+      return;
+    }
+    
+    // Process data for weekly activity chart
+    const today = new Date();
+    const lastWeekDates = [];
+    
+    // Generate the last 7 days (including today)
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      lastWeekDates.push(date);
+    }
+    
+    // Format dates as labels and count study hours per day
+    const labels = lastWeekDates.map(date => {
+      const options = { weekday: 'short' };
+      return new Intl.DateTimeFormat('en-US', options).format(date);
+    });
+    
+    // Calculate study hours per day
+    const studyHoursData = lastWeekDates.map(date => {
+      const sessionsOnDate = allSessions.filter(session => {
+        const sessionDate = new Date(session.date);
+        return sessionDate.toDateString() === date.toDateString();
+      });
+      
+      const totalMinutes = sessionsOnDate.reduce((sum, session) => {
+        return sum + (parseInt(session.duration) || 0);
+      }, 0);
+      
+      return totalMinutes / 60; // Convert minutes to hours
+    });
+    
+    // Calculate revisions per day
+    const revisionsData = lastWeekDates.map(date => {
+      return allSessions.filter(session => {
+        const sessionDate = new Date(session.date);
+        return sessionDate.toDateString() === date.toDateString() && 
+               (session.status === 'revised' || session.type === 'revision');
+      }).length;
+    });
+    
+    try {
+      // Get the canvas context
+      const ctx = canvasElement.getContext('2d');
+      
+      // Check if chart already exists and destroy it
+      if (window.activityChart) {
+        window.activityChart.destroy();
+      }
+      
+      // Set responsive options based on screen size
+      const isMobile = window.innerWidth <= 768;
+      const chartHeight = isMobile ? 250 : 350; // Shorter height on mobile
+      
+      // Adjust canvas height for better mobile viewing
+      canvasElement.height = chartHeight;
+      
+      // Create the chart
+      window.activityChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Study Hours',
+              data: studyHoursData,
+              backgroundColor: 'rgba(106, 76, 147, 0.7)',
+              borderColor: 'rgba(106, 76, 147, 1)',
+              borderWidth: 1,
+              yAxisID: 'y'
+            },
+            {
+              label: 'Revisions',
+              data: revisionsData,
+              backgroundColor: 'rgba(255, 159, 64, 0.7)',
+              borderColor: 'rgba(255, 159, 64, 1)',
+              borderWidth: 1,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false, // Changed to false for better mobile control
+          scales: {
+            y: {
+              beginAtZero: true,
+              position: 'left',
+              title: {
+                display: !isMobile, // Hide title on mobile
+                text: 'Hours'
+              },
+              grid: {
+                display: !isMobile // Simplified grid on mobile
+              }
+            },
+            y1: {
+              beginAtZero: true,
+              position: 'right',
+              grid: {
+                drawOnChartArea: false
+              },
+              title: {
+                display: !isMobile, // Hide title on mobile
+                text: 'Revisions'
+              }
+            },
+            x: {
+              title: {
+                display: !isMobile, // Hide title on mobile
+                text: 'Day'
+              },
+              grid: {
+                display: !isMobile // Simplified grid on mobile
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              display: true,
+              position: isMobile ? 'bottom' : 'top', // Position legend at bottom on mobile
+              labels: {
+                boxWidth: isMobile ? 12 : 40, // Smaller legend boxes on mobile
+                padding: isMobile ? 10 : 20
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const datasetLabel = context.dataset.label || '';
+                  if (datasetLabel === 'Study Hours') {
+                    return `${datasetLabel}: ${context.parsed.y.toFixed(1)}h`;
+                  } else {
+                    return `${datasetLabel}: ${context.parsed.y}`;
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+      
+      // Set the container height to match the chart
+      const chartContainer = canvasElement.parentElement;
+      if (chartContainer) {
+        chartContainer.style.height = `${chartHeight + 50}px`; // Extra space for heading
+      }
+      
+    } catch (ctxError) {
+      console.error('Error initializing chart context:', ctxError);
+    }
+  } catch (error) {
+    console.error('Error initializing activity chart:', error);
+  }
 }
 
 // Helper function to show loading indicators
@@ -919,7 +1191,10 @@ function setupNavigation() {
       
       // Refresh data in the selected section if needed
       if (sectionId === 'reports') {
-        updateReports();
+        // Get the active time range
+        const activeTimeBtn = document.querySelector('.time-btn.active');
+        const timeRange = activeTimeBtn ? activeTimeBtn.getAttribute('data-range') : 'week';
+        updateReports(timeRange);
       } else if (sectionId === 'study-buddy') {
         renderStudySessions();
       } else if (sectionId === 'dashboard') {
@@ -1532,58 +1807,213 @@ function setupSessionRowEventListeners(row, session) {
   }
 }
 
-// Function to initialize the dashboard with stats and charts
+// Function to initialize dashboard components
 function initializeDashboard() {
   try {
-    // Update count statistics safely
-    const coursesCountElement = document.getElementById('courses-count');
-    if (coursesCountElement) {
-      coursesCountElement.textContent = allCourses?.length || 0;
-    }
+    console.log('Initializing dashboard components...');
     
-    const sessionsCountElement = document.getElementById('sessions-count');
-    if (sessionsCountElement) {
-      sessionsCountElement.textContent = allSessions?.length || 0;
-    }
+    // Show loading indicators for dashboard components
+    document.querySelectorAll('.stat-card p').forEach(statEl => {
+      statEl.innerHTML = '<span class="loader"></span> Loading...';
+    });
     
-    // Calculate total study time
-    const totalMinutes = (allSessions || []).reduce((total, session) => {
-      return total + (parseInt(session.duration) || 0)
-    }, 0);
-    
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    
-    const studyTimeElement = document.getElementById('study-time');
-    if (studyTimeElement) {
-      studyTimeElement.textContent = `${hours}h ${minutes}m`;
-    }
-    
-    // Count revisions safely
-    const revisions = (allSessions || []).reduce((total, session) => {
-      return total + (session.revisions ? session.revisions.length : 0);
-    }, 0);
-    
-    const revisionsCountElement = document.getElementById('revisions-count');
-    if (revisionsCountElement) {
-      revisionsCountElement.textContent = revisions;
-    }
-    
-    // Initialize or update charts
-    // Wrap in try/catch to prevent failures from breaking the dashboard
-    try {
+    // Fetch fresh data first to ensure we have the latest
+    Promise.all([
+      fetchCourses().catch(err => {
+        console.error('Error fetching courses for dashboard:', err);
+        return allCourses || [];
+      }),
+      fetchStudySessions().catch(err => {
+        console.error('Error fetching sessions for dashboard:', err);
+        return allSessions || [];
+      })
+    ]).then(([courses, sessions]) => {
+      // Update global variables
+      allCourses = courses;
+      allSessions = sessions;
+      
+      // Update all stats with fresh data
+      updateStats();
+      
+      // Update recent activity section
+      updateRecentActivity();
+      
+      // Initialize activity chart
       initializeActivityChart();
-    } catch (chartError) {
-      console.error('Error initializing activity chart:', chartError);
-    }
-    
-    try {
-      initializeCourseDistributionChart();
-    } catch (chartError) {
-      console.error('Error initializing course distribution chart:', chartError);
-    }
+    }).catch(error => {
+      console.error('Error loading dashboard data:', error);
+      
+      // Show error message but still try to display any available data
+      showErrorMessage('Error loading some dashboard data. Showing available information.');
+      
+      // Update stats with whatever data we have
+      updateStats();
+    });
   } catch (error) {
     console.error('Error initializing dashboard:', error);
+    
+    // Ensure we at least show zeros instead of loading indicators
+    document.querySelectorAll('.stat-card p').forEach(statEl => {
+      if (statEl.querySelector('.loader')) {
+        statEl.innerHTML = '0';
+      }
+    });
+  }
+}
+
+// Function to update recent activity section
+async function updateRecentActivity() {
+  try {
+    const recentActivityContainer = document.querySelector('.activity-list');
+    if (!recentActivityContainer) return;
+    
+    // Show loading
+    recentActivityContainer.innerHTML = `<div class="loading-container"><span class="loader"></span><p>Loading recent activity...</p></div>`;
+    
+    // Ensure we have sessions data
+    if (!allSessions || allSessions.length === 0) {
+      recentActivityContainer.innerHTML = `<div class="no-data-message">No recent activity found.</div>`;
+      return;
+    }
+    
+    // Get the most recent sessions (limit to 5)
+    const recentSessions = [...allSessions]
+      .filter(session => session.date && isValidDate(session.date)) // Ensure date is valid
+      .sort((a, b) => {
+        // Use createdAt if available, fall back to date
+        const dateA = a.createdAt ? new Date(a.createdAt) : new Date(a.date);
+        const dateB = b.createdAt ? new Date(b.createdAt) : new Date(b.date);
+        return dateB - dateA; // Sort descending (newest first)
+      })
+      .slice(0, 5);
+    
+    if (recentSessions.length === 0) {
+      recentActivityContainer.innerHTML = `<div class="no-data-message">No recent activity found.</div>`;
+      return;
+    }
+    
+    // Generate HTML for recent sessions
+    let activityHTML = '';
+    
+    for (const session of recentSessions) {
+      const courseId = session.courseId;
+      // Find course name
+      const course = allCourses.find(c => c.id === courseId);
+      const courseName = course ? course.name || course.code : 'Unknown Course';
+      
+      // Format date - ensure it's valid first
+      let formattedDate = 'Unknown Date';
+      let timeAgo = '';
+      
+      if (isValidDate(session.date)) {
+        const sessionDate = new Date(session.date);
+        formattedDate = sessionDate.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric'
+        });
+        
+        // Format time ago - use createdAt if available, otherwise use date
+        const timeStamp = session.createdAt && isValidDate(session.createdAt) 
+          ? session.createdAt 
+          : session.date;
+        
+        timeAgo = getTimeAgo(timeStamp);
+      } else {
+        console.warn('Invalid date found in session:', session);
+        formattedDate = 'Date unavailable';
+        timeAgo = '';
+      }
+      
+      // Determine icon based on session type
+      let iconClass = 'fa-book';
+      if (session.type === 'lab') {
+        iconClass = 'fa-flask';
+      } else if (session.type === 'revision') {
+        iconClass = 'fa-sync';
+      }
+      
+      activityHTML += `
+        <div class="activity-item">
+          <div class="activity-icon">
+            <i class="fas ${iconClass}"></i>
+          </div>
+          <div class="activity-details">
+            <div class="activity-title">${session.topic || 'Untitled Session'}</div>
+            <div class="activity-subtitle">${courseName}</div>
+            <div class="activity-info">${session.type || 'study'} · ${formattedDate} · ${session.duration || 0} mins</div>
+          </div>
+          <div class="activity-time">${timeAgo}</div>
+        </div>
+      `;
+    }
+    
+    // Update the container
+    recentActivityContainer.innerHTML = activityHTML;
+    
+    // Make activity items clickable to open session details
+    document.querySelectorAll('.activity-item').forEach((item, index) => {
+      item.addEventListener('click', () => {
+        openSessionDetailModal(recentSessions[index]);
+      });
+      
+      // Add hover class for better feedback
+      item.classList.add('clickable');
+    });
+  } catch (error) {
+    console.error('Error updating recent activity:', error);
+    const recentActivityContainer = document.querySelector('.activity-list');
+    if (recentActivityContainer) {
+      recentActivityContainer.innerHTML = `<div class="error-message">Error loading recent activity.</div>`;
+    }
+  }
+}
+
+// Helper function to check if a date string is valid
+function isValidDate(dateString) {
+  if (!dateString) return false;
+  
+  // Handle Firebase Timestamp objects
+  if (typeof dateString === 'object' && dateString.toDate && typeof dateString.toDate === 'function') {
+    return true;
+  }
+  
+  const date = new Date(dateString);
+  return date instanceof Date && !isNaN(date);
+}
+
+// Helper function to format time ago
+function getTimeAgo(dateString) {
+  if (!dateString || !isValidDate(dateString)) return '';
+  
+  // Handle Firebase Timestamp objects
+  let date;
+  if (typeof dateString === 'object' && dateString.toDate && typeof dateString.toDate === 'function') {
+    date = dateString.toDate();
+  } else {
+    date = new Date(dateString);
+  }
+  
+  const now = new Date();
+  const diffMs = now - date;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+  
+  if (diffSec < 60) {
+    return 'just now';
+  } else if (diffMin < 60) {
+    return `${diffMin}m ago`;
+  } else if (diffHour < 24) {
+    return `${diffHour}h ago`;
+  } else if (diffDay < 7) {
+    return `${diffDay}d ago`;
+  } else {
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
+    });
   }
 }
 
@@ -1693,6 +2123,9 @@ function initializeCourseDistributionChart() {
 
 // Setup the time range selectors in reports
 function setupTimeRangeSelectors() {
+  const timeRangeButtons = document.querySelectorAll('.time-btn');
+  if (!timeRangeButtons || timeRangeButtons.length === 0) return;
+  
   timeRangeButtons.forEach(button => {
     button.addEventListener('click', () => {
       timeRangeButtons.forEach(btn => btn.classList.remove('active'));
@@ -1704,19 +2137,632 @@ function setupTimeRangeSelectors() {
 }
 
 // Function to update reports section with specified time range
-function updateReports(timeRange = '7') {
+function updateReports(timeRange = 'week') {
   try {
-    // Default to last 7 days if not specified
-    const days = parseInt(timeRange) || 7;
+    console.log('Updating reports with time range:', timeRange);
     
-    // Update activity chart with new time range
-    updateActivityChart(days);
+    // Convert time range to days
+    let days = 7; // Default to week
+    if (timeRange === 'month') {
+      days = 30;
+    } else if (timeRange === 'semester') {
+      days = 120;
+    }
     
-    // Update other reports as needed
-    updateStudyStats(days);
+    // Highlight the active time button
+    document.querySelectorAll('.time-btn').forEach(btn => {
+      btn.classList.remove('active');
+      if (btn.getAttribute('data-range') === timeRange) {
+        btn.classList.add('active');
+      }
+    });
+    
+    // Ensure we have sessions and courses data
+    if (!allSessions || !allCourses) {
+      Promise.all([
+        fetchStudySessions(),
+        fetchCourses()
+      ]).then(() => {
+        initializeReportsCharts(days);
+        generateReportInsights(days);
+      }).catch(error => {
+        console.error('Error fetching data for reports:', error);
+        showErrorMessage('Error loading reports data. Please try again.');
+      });
+      return;
+    }
+    
+    // Initialize or update charts
+    initializeReportsCharts(days);
+    
+    // Update report insights section
+    generateReportInsights(days);
   } catch (error) {
     console.error('Error updating reports:', error);
+    // Show error message in reports section
+    const reportSection = document.getElementById('reports');
+    if (reportSection) {
+      reportSection.querySelector('.reports-grid').innerHTML = `
+        <div class="error-message">
+          <p>Error loading reports data. Please try again.</p>
+          <button class="secondary-btn retry-btn">Retry</button>
+        </div>
+      `;
+      
+      // Add retry button functionality
+      const retryBtn = reportSection.querySelector('.retry-btn');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => {
+          updateReports(timeRange);
+        });
+      }
+    }
   }
+}
+
+// Function to initialize all reports charts
+function initializeReportsCharts(days) {
+  try {
+    // Show loading indicators for report sections
+    const reportSection = document.getElementById('reports');
+    if (reportSection) {
+      const reportCards = reportSection.querySelectorAll('.report-card');
+      reportCards.forEach(card => {
+        card.innerHTML = `<h3>${card.querySelector('h3').textContent}</h3><div class="loading-container"><span class="loader"></span><p>Loading...</p></div>`;
+      });
+    }
+    
+    // Initialize each chart
+    initializeTimeDistributionChart(days);
+    initializeRevisionChart(days);
+    initializeSessionsByCourseChart(days);
+    initializeProgressOverTimeChart(days);
+  } catch (error) {
+    console.error('Error initializing reports charts:', error);
+  }
+}
+
+// Initialize the time distribution chart
+function initializeTimeDistributionChart(days) {
+  const chartCanvas = document.getElementById('time-distribution-chart');
+  if (!chartCanvas) return;
+  
+  try {
+    // Filter sessions based on date range
+    const now = new Date();
+    const startDate = new Date();
+    startDate.setDate(now.getDate() - days);
+    
+    const filteredSessions = allSessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      return sessionDate >= startDate && sessionDate <= now;
+    });
+    
+    // Calculate time spent per course
+    const courseTimeMap = new Map();
+    
+    filteredSessions.forEach(session => {
+      const { courseId, duration } = session;
+      const mins = parseInt(duration) || 0;
+      
+      if (courseTimeMap.has(courseId)) {
+        courseTimeMap.set(courseId, courseTimeMap.get(courseId) + mins);
+      } else {
+        courseTimeMap.set(courseId, mins);
+      }
+    });
+    
+    // Convert to arrays for chart
+    const courseIds = Array.from(courseTimeMap.keys());
+    const courseNames = courseIds.map(id => {
+      const course = allCourses.find(c => c.id === id);
+      return course ? (course.code || 'Unknown') : 'Unknown';
+    });
+    
+    const courseTimes = courseIds.map(id => courseTimeMap.get(id));
+    
+    // Generate colors for each course
+    const backgroundColors = courseIds.map((_, index) => {
+      const hue = (index * 137.5) % 360; // Generate varied colors using golden angle
+      return `hsla(${hue}, 70%, 60%, 0.7)`;
+    });
+    
+    // If chart already exists, destroy it
+    if (window.timeDistributionChart) {
+      window.timeDistributionChart.destroy();
+    }
+    
+    // Create new chart
+    window.timeDistributionChart = new Chart(chartCanvas.getContext('2d'), {
+      type: 'pie',
+      data: {
+        labels: courseNames,
+        datasets: [{
+          data: courseTimes,
+          backgroundColor: backgroundColors,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              boxWidth: 15,
+              padding: 10
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const value = context.raw;
+                const hours = Math.floor(value / 60);
+                const minutes = value % 60;
+                return `${context.label}: ${hours}h ${minutes}m`;
+              }
+            }
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error initializing time distribution chart:', error);
+    chartCanvas.parentElement.innerHTML = `<h3>Study Time Distribution</h3><div class="error-message">Error loading chart</div>`;
+  }
+}
+
+// Initialize the revision frequency chart
+function initializeRevisionChart(days) {
+  const chartCanvas = document.getElementById('revision-chart');
+  if (!chartCanvas) return;
+  
+  try {
+    // Filter sessions based on date range
+    const now = new Date();
+    const startDate = new Date();
+    startDate.setDate(now.getDate() - days);
+    
+    // Create array of days for the x-axis
+    const daysArray = [];
+    for (let i = 0; i < days; i++) {
+      const date = new Date();
+      date.setDate(now.getDate() - i);
+      daysArray.unshift(date);
+    }
+    
+    // Format dates as labels
+    const labels = daysArray.map(date => {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+    
+    // Count revisions for each day
+    const revisionCounts = daysArray.map(date => {
+      return allSessions.filter(session => {
+        const sessionDate = new Date(session.date);
+        return sessionDate.toDateString() === date.toDateString() && 
+               (session.status === 'revised' || session.type === 'revision');
+      }).length;
+    });
+    
+    // If chart already exists, destroy it
+    if (window.revisionChart) {
+      window.revisionChart.destroy();
+    }
+    
+    // Create new chart
+    window.revisionChart = new Chart(chartCanvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Revisions',
+          data: revisionCounts,
+          backgroundColor: 'rgba(255, 159, 64, 0.2)',
+          borderColor: 'rgba(255, 159, 64, 1)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              precision: 0
+            }
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error initializing revision chart:', error);
+    chartCanvas.parentElement.innerHTML = `<h3>Revision Frequency</h3><div class="error-message">Error loading chart</div>`;
+  }
+}
+
+// Initialize the sessions by course chart
+function initializeSessionsByCourseChart(days) {
+  const chartCanvas = document.getElementById('sessions-by-course-chart');
+  if (!chartCanvas) return;
+  
+  try {
+    // Filter sessions based on date range
+    const now = new Date();
+    const startDate = new Date();
+    startDate.setDate(now.getDate() - days);
+    
+    const filteredSessions = allSessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      return sessionDate >= startDate && sessionDate <= now;
+    });
+    
+    // Count sessions per course
+    const courseSessionsMap = new Map();
+    
+    filteredSessions.forEach(session => {
+      const courseId = session.courseId;
+      
+      if (courseSessionsMap.has(courseId)) {
+        courseSessionsMap.set(courseId, courseSessionsMap.get(courseId) + 1);
+      } else {
+        courseSessionsMap.set(courseId, 1);
+      }
+    });
+    
+    // Convert to arrays for chart
+    const courseIds = Array.from(courseSessionsMap.keys());
+    const courseNames = courseIds.map(id => {
+      const course = allCourses.find(c => c.id === id);
+      return course ? (course.code || 'Unknown') : 'Unknown';
+    });
+    
+    const sessionCounts = courseIds.map(id => courseSessionsMap.get(id));
+    
+    // Generate colors for each course
+    const backgroundColors = courseIds.map((_, index) => {
+      const hue = (index * 137.5) % 360; // Generate varied colors using golden angle
+      return `hsla(${hue}, 70%, 60%, 0.7)`;
+    });
+    
+    // If chart already exists, destroy it
+    if (window.sessionsByCourseChart) {
+      window.sessionsByCourseChart.destroy();
+    }
+    
+    // Create new chart
+    window.sessionsByCourseChart = new Chart(chartCanvas.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: courseNames,
+        datasets: [{
+          label: 'Study Sessions',
+          data: sessionCounts,
+          backgroundColor: backgroundColors,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              precision: 0
+            }
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error initializing sessions by course chart:', error);
+    chartCanvas.parentElement.innerHTML = `<h3>Study Sessions by Course</h3><div class="error-message">Error loading chart</div>`;
+  }
+}
+
+// Initialize the progress over time chart
+function initializeProgressOverTimeChart(days) {
+  const chartCanvas = document.getElementById('progress-over-time-chart');
+  if (!chartCanvas) return;
+  
+  try {
+    // Create array of days for the x-axis
+    const now = new Date();
+    const daysArray = [];
+    for (let i = 0; i < days; i++) {
+      const date = new Date();
+      date.setDate(now.getDate() - i);
+      daysArray.unshift(date);
+    }
+    
+    // Format dates as labels
+    const labels = daysArray.map(date => {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+    
+    // Calculate cumulative study time for each day
+    let cumulativeMinutes = 0;
+    const cumulativeStudyTime = daysArray.map(date => {
+      const dailyMinutes = allSessions
+        .filter(session => {
+          const sessionDate = new Date(session.date);
+          return sessionDate <= date;
+        })
+        .reduce((total, session) => total + (parseInt(session.duration) || 0), 0);
+      
+      return dailyMinutes / 60; // Convert to hours
+    });
+    
+    // If chart already exists, destroy it
+    if (window.progressOverTimeChart) {
+      window.progressOverTimeChart.destroy();
+    }
+    
+    // Create new chart
+    window.progressOverTimeChart = new Chart(chartCanvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Cumulative Study Hours',
+          data: cumulativeStudyTime,
+          backgroundColor: 'rgba(75, 192, 192, 0.2)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 2,
+          tension: 0.1,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Hours'
+            }
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error initializing progress over time chart:', error);
+    chartCanvas.parentElement.innerHTML = `<h3>Progress Over Time</h3><div class="error-message">Error loading chart</div>`;
+  }
+}
+
+// New function to generate insights for the reports section
+function generateReportInsights(days) {
+  try {
+    const insightsContainer = document.querySelector('.insights-container');
+    if (!insightsContainer) return;
+    
+    // Show loading
+    insightsContainer.innerHTML = `<div class="loading-container"><span class="loader"></span><p>Generating insights...</p></div>`;
+    
+    // Filter sessions based on date range
+    const now = new Date();
+    const startDate = new Date();
+    startDate.setDate(now.getDate() - days);
+    
+    const filteredSessions = allSessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      return sessionDate >= startDate && sessionDate <= now;
+    });
+    
+    // If no sessions in the period
+    if (filteredSessions.length === 0) {
+      insightsContainer.innerHTML = `
+        <div class="insight-card">
+          <h4>No Study Data Available</h4>
+          <p>No study sessions found in the selected period. Start studying to see insights!</p>
+        </div>
+      `;
+      return;
+    }
+    
+    // Calculate insights
+    const totalSessions = filteredSessions.length;
+    const totalMinutes = filteredSessions.reduce((sum, session) => sum + (parseInt(session.duration) || 0), 0);
+    const avgSessionLength = Math.round(totalMinutes / totalSessions);
+    
+    // Find most studied course
+    const courseMap = new Map();
+    filteredSessions.forEach(session => {
+      const courseId = session.courseId;
+      const duration = parseInt(session.duration) || 0;
+      if (courseMap.has(courseId)) {
+        courseMap.set(courseId, courseMap.get(courseId) + duration);
+      } else {
+        courseMap.set(courseId, duration);
+      }
+    });
+    
+    let mostStudiedCourseId = null;
+    let maxTime = 0;
+    
+    for (const [courseId, time] of courseMap.entries()) {
+      if (time > maxTime) {
+        mostStudiedCourseId = courseId;
+        maxTime = time;
+      }
+    }
+    
+    // Find course name
+    let mostStudiedCourseName = 'Unknown';
+    if (mostStudiedCourseId) {
+      const course = allCourses.find(c => c.id === mostStudiedCourseId);
+      if (course) {
+        mostStudiedCourseName = course.name || course.code || 'Unknown';
+      }
+    }
+    
+    // Find most productive day
+    const dayMap = new Map();
+    filteredSessions.forEach(session => {
+      const sessionDate = new Date(session.date);
+      const day = sessionDate.toLocaleDateString('en-US', { weekday: 'long' });
+      const duration = parseInt(session.duration) || 0;
+      
+      if (dayMap.has(day)) {
+        dayMap.set(day, dayMap.get(day) + duration);
+      } else {
+        dayMap.set(day, duration);
+      }
+    });
+    
+    let mostProductiveDay = 'Unknown';
+    maxTime = 0;
+    
+    for (const [day, time] of dayMap.entries()) {
+      if (time > maxTime) {
+        mostProductiveDay = day;
+        maxTime = time;
+      }
+    }
+    
+    // Generate HTML for insights
+    const insights = `
+      <div class="insight-card">
+        <h4>Study Overview</h4>
+        <p>You completed <strong>${totalSessions}</strong> study sessions over <strong>${days}</strong> days.</p>
+        <p>Total study time: <strong>${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m</strong></p>
+      </div>
+      
+      <div class="insight-card">
+        <h4>Session Analysis</h4>
+        <p>Average session length: <strong>${Math.floor(avgSessionLength / 60)}h ${avgSessionLength % 60}m</strong></p>
+        <p>Most studied course: <strong>${mostStudiedCourseName}</strong></p>
+      </div>
+      
+      <div class="insight-card">
+        <h4>Time Patterns</h4>
+        <p>Most productive day: <strong>${mostProductiveDay}</strong></p>
+      </div>
+    `;
+    
+    // Update the insights container
+    insightsContainer.innerHTML = insights;
+  } catch (error) {
+    console.error('Error generating report insights:', error);
+    // Show error message
+    const insightsContainer = document.querySelector('.insights-container');
+    if (insightsContainer) {
+      insightsContainer.innerHTML = `
+        <div class="insight-card">
+          <h4>Error Loading Insights</h4>
+          <p>Failed to generate insights. Please try again later.</p>
+        </div>
+      `;
+    }
+  }
+}
+
+// New function to update course distribution for reports
+function updateCourseDistributionForReports(days) {
+  try {
+    const courseDistributionElement = document.getElementById('course-distribution-chart');
+    if (!courseDistributionElement) return;
+    
+    // Filter sessions based on date range
+    const now = new Date();
+    const startDate = new Date();
+    startDate.setDate(now.getDate() - days);
+    
+    const filteredSessions = allSessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      return sessionDate >= startDate && sessionDate <= now;
+    });
+    
+    // Calculate time spent per course
+    const courseTimeMap = new Map();
+    
+    filteredSessions.forEach(session => {
+      const { courseId, duration } = session;
+      const mins = parseInt(duration) || 0;
+      
+      if (courseTimeMap.has(courseId)) {
+        courseTimeMap.set(courseId, courseTimeMap.get(courseId) + mins);
+      } else {
+        courseTimeMap.set(courseId, mins);
+      }
+    });
+    
+    // Convert to arrays for chart
+    const courseIds = Array.from(courseTimeMap.keys());
+    const courseNames = courseIds.map(id => {
+      const course = allCourses.find(c => c.id === id);
+      return course ? (course.code || 'Unknown') : 'Unknown';
+    });
+    
+    const courseTimes = courseIds.map(id => courseTimeMap.get(id));
+    
+    // Generate colors for each course
+    const backgroundColors = courseIds.map((_, index) => {
+      const hue = (index * 137.5) % 360; // Generate varied colors using golden angle
+      return `hsla(${hue}, 70%, 60%, 0.7)`;
+    });
+    
+    // If chart already exists, update it
+    if (window.courseDistributionChart) {
+      window.courseDistributionChart.data.labels = courseNames;
+      window.courseDistributionChart.data.datasets[0].data = courseTimes;
+      window.courseDistributionChart.data.datasets[0].backgroundColor = backgroundColors;
+      window.courseDistributionChart.update();
+    } else {
+      // Create new chart
+      window.courseDistributionChart = new Chart(courseDistributionElement.getContext('2d'), {
+        type: 'pie',
+        data: {
+          labels: courseNames,
+          datasets: [{
+            data: courseTimes,
+            backgroundColor: backgroundColors,
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: window.innerWidth > 768,
+          plugins: {
+            legend: {
+              position: window.innerWidth > 768 ? 'right' : 'bottom',
+              labels: {
+                boxWidth: 15,
+                padding: 10
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const value = context.raw;
+                  const hours = Math.floor(value / 60);
+                  const minutes = value % 60;
+                  return `${context.label}: ${hours}h ${minutes}m`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error updating course distribution chart:', error);
+  }
+}
+
+// New function to update achievements for reports
+function updateAchievementsForReports(days) {
+  // Implementation will depend on how achievements are tracked in your app
+  // This is a placeholder implementation
+  console.log('Updating achievements for reports with days:', days);
 }
 
 // Function to update activity chart with specified time range
@@ -1725,12 +2771,21 @@ async function updateActivityChart(days) {
     const activityChartElement = document.getElementById('activity-chart');
     if (!activityChartElement) return;
     
-    // Get activity data for the specified days
-    const activityData = await getDailyActivity(days);
+    // Show loading state
+    activityChartElement.style.opacity = '0.5';
+    
+    // Get activity data for the specified days - forcing a fresh fetch from database
+    // Avoid using clearCache for 'dailyActivity' since it might not be registered
+    const activityData = await getDailyActivity(days, true); // Pass true to force a fresh fetch
     
     // Convert the activity data object to arrays for Chart.js
     const dates = Object.keys(activityData).sort();
-    const labels = dates;
+    const labels = dates.map(date => {
+      // Format date for display (e.g., "Mon", "Tue", etc.)
+      const dateObj = new Date(date);
+      return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(dateObj);
+    });
+    
     const sessionData = dates.map(date => activityData[date]?.sessions || 0);
     const revisionData = dates.map(date => activityData[date]?.revisions || 0);
     
@@ -1744,6 +2799,15 @@ async function updateActivityChart(days) {
         }
         if (window.activityChart.data.datasets.length > 1 && window.activityChart.data.datasets[1]) {
           window.activityChart.data.datasets[1].data = revisionData;
+        } else if (window.activityChart.data.datasets.length === 1) {
+          // Add the revisions dataset if it doesn't exist
+          window.activityChart.data.datasets.push({
+            label: 'Revisions',
+            data: revisionData,
+            backgroundColor: 'rgba(255, 159, 64, 0.7)',
+            borderColor: 'rgba(255, 159, 64, 1)',
+            borderWidth: 1
+          });
         }
       }
       
@@ -1751,18 +2815,82 @@ async function updateActivityChart(days) {
       window.activityChart.update();
     } else {
       // Create new chart if it doesn't exist
-      initializeActivityChart();
+      try {
+        window.activityChart = new Chart(activityChartElement.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Study Sessions',
+                data: sessionData,
+                backgroundColor: 'rgba(106, 76, 147, 0.7)',
+                borderColor: 'rgba(106, 76, 147, 1)',
+                borderWidth: 1
+              },
+              {
+                label: 'Revisions',
+                data: revisionData,
+                backgroundColor: 'rgba(255, 159, 64, 0.7)',
+                borderColor: 'rgba(255, 159, 64, 1)',
+                borderWidth: 1
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: window.innerWidth > 768,
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: window.innerWidth > 576,
+                  text: 'Count'
+                }
+              },
+              x: {
+                title: {
+                  display: window.innerWidth > 576,
+                  text: 'Day'
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: window.innerWidth > 768 ? 'top' : 'bottom'
+              },
+              tooltip: {
+                callbacks: {
+                  title: function(tooltipItems) {
+                    return tooltipItems[0].label;
+                  },
+                  label: function(context) {
+                    const label = context.dataset.label || '';
+                    const value = context.parsed.y;
+                    return `${label}: ${value}`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      } catch (chartError) {
+        console.error('Error creating chart:', chartError);
+      }
     }
+    
+    // Restore opacity
+    activityChartElement.style.opacity = '1';
   } catch (error) {
     console.error('Error updating activity chart:', error);
-    // Initialize a new chart as fallback if update fails
-    try {
-      if (window.activityChart) {
-        window.activityChart.destroy();
-      }
-      initializeActivityChart();
-    } catch (fallbackError) {
-      console.error('Failed to initialize fallback chart:', fallbackError);
+    // Display error message in chart container
+    const chartContainer = activityChartElement.closest('.chart-container');
+    if (chartContainer) {
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'chart-error';
+      errorMessage.innerHTML = 'Error loading chart data. Please try again.';
+      chartContainer.appendChild(errorMessage);
     }
   }
 }
@@ -4502,171 +5630,287 @@ async function fetchStudySessions() {
 
 // Function to update stats
 function updateStats() {
+  try {
+    console.log('Updating all dashboard stats...');
+    
+    // Clear loading indicators
+    document.querySelectorAll('.stat-card p').forEach(statEl => {
+      // Only clear if it contains a loading indicator
+      if (statEl.querySelector('.loader')) {
+        statEl.innerHTML = '0';
+      }
+    });
+    
+    // Update individual stats
     updateCourseCount();
     updateStudyHoursCount();
     updateLabsCount();
     updateAchievementsCount();
+    
+    console.log('All stats updated successfully');
+  } catch (error) {
+    console.error('Error updating stats:', error);
+    
+    // Ensure we at least show zeros instead of loading indicators
+    document.querySelectorAll('.stat-card p').forEach(statEl => {
+      if (statEl.querySelector('.loader')) {
+        statEl.innerHTML = '0';
+      }
+    });
+  }
 }
 
 // Helper function to check if device is mobile
 function isMobileDevice() {
-    return window.innerWidth <= 768;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
 }
 
-// Helper function to handle orientation changes
-function handleOrientationChange() {
-    if (isMobileDevice()) {
-        // Force refresh charts and layouts when orientation changes
-        if (window.activityChart) {
-            window.activityChart.resize();
-        }
-        if (window.progressChart) {
-            window.progressChart.resize();
-        }
+// Helper function to detect iOS devices
+function isIOSDevice() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+// Apply iOS specific fixes
+function applyIOSFixes() {
+    if (isIOSDevice()) {
+        // Add iOS specific class
+        document.body.classList.add('ios-device');
         
-        // Adjust modal positions
-        const activeModal = document.querySelector('.modal.active');
-        if (activeModal) {
-            const modalContent = activeModal.querySelector('.modal-content');
-            if (modalContent) {
-                modalContent.style.maxHeight = `${window.innerHeight * 0.9}px`;
-                modalContent.style.overflowY = 'auto';
-            }
-        }
+        // Fix for 100vh issue on iOS
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        
+        // Reapply on resize and orientation change
+        window.addEventListener('resize', () => {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        });
+        
+        // Fix input focusing issues
+        const inputs = document.querySelectorAll('input, textarea, select');
+        inputs.forEach(input => {
+            input.addEventListener('focus', () => {
+                setTimeout(() => {
+                    window.scrollTo(0, 0);
+                }, 50);
+            });
+        });
     }
 }
 
-// Add orientation change listener
-window.addEventListener('orientationchange', () => {
-    // Small delay to ensure dimensions are updated
-    setTimeout(handleOrientationChange, 100);
-});
-
+// Helper function to handle orientation changes
 // Function to update course count
 function updateCourseCount() {
     const coursesCountElement = document.getElementById('courses-count');
-    if (coursesCountElement) {
-        coursesCountElement.textContent = allCourses.length || 0;
+    if (!coursesCountElement) return;
+    
+    try {
+      const count = allCourses?.length || 0;
+      coursesCountElement.textContent = count;
+    } catch (error) {
+      console.error('Error updating course count:', error);
+      coursesCountElement.textContent = '0';
     }
 }
 
 // Function to update study hours count
 function updateStudyHoursCount() {
-    const studyHoursElement = document.getElementById('study-hours');
-    if (studyHoursElement) {
-        // Calculate total study time
-        const totalMinutes = allSessions.reduce((total, session) => {
-            return total + (parseInt(session.duration) || 0);
-        }, 0);
+  const studyHoursElement = document.getElementById('study-hours');
+  if (!studyHoursElement) return;
+  
+  try {
+    // Calculate total study time
+    const totalMinutes = (allSessions || []).reduce((total, session) => {
+      return total + (parseInt(session.duration) || 0);
+    }, 0);
         
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-        studyHoursElement.textContent = `${hours}h ${minutes}m`;
-    }
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    
+    studyHoursElement.textContent = `${hours}h ${minutes}m`;
+  } catch (error) {
+    console.error('Error updating study hours count:', error);
+    studyHoursElement.textContent = '0h 0m';
+  }
 }
 
 // Function to update labs count
 function updateLabsCount() {
-    const labsCountElement = document.getElementById('labs-count');
-    if (labsCountElement) {
-        // Count lab sessions
-        let labCount = allSessions.filter(session => session.type === 'lab').length;
-        
-        // Add lab count from Firebase if available
-        const labsFromFirebase = window.labsList || [];
-        labCount += labsFromFirebase.length;
-        
-        labsCountElement.textContent = labCount;
-    }
+  const labsCountElement = document.getElementById('labs-count');
+  if (!labsCountElement) return;
+  
+  try {
+    // Get session with type lab that have status completed
+    const completedLabs = (allSessions || []).filter(session => 
+      session.type === 'lab' && (session.status === 'completed' || session.status === 'studied')
+    ).length;
+    
+    labsCountElement.textContent = completedLabs;
+  } catch (error) {
+    console.error('Error updating labs count:', error);
+    labsCountElement.textContent = '0';
+  }
 }
 
 // Function to update achievements count
 function updateAchievementsCount() {
     const achievementsCountElement = document.getElementById('achievements-count');
-    if (achievementsCountElement) {
-        // Calculate achievements based on activity
+  if (!achievementsCountElement) return;
+  
+  try {
+    // Calculate achievements based on app usage
         let achievementCount = 0;
         
-        // Achievement: Started Learning - has at least one session
-        if (allSessions.length > 0) {
+    // Achievement 1: Started using the app
+    achievementCount++;
+    
+    // Achievement 2: Added at least 5 courses
+    if (allCourses && allCourses.length >= 5) {
             achievementCount++;
         }
         
-        // Achievement: Course Explorer - has sessions in multiple courses
-        const uniqueCourseIds = new Set(allSessions.map(session => session.courseId));
-        if (uniqueCourseIds.size >= 2) {
+    // Achievement 3: Recorded at least 10 study sessions
+    if (allSessions && allSessions.length >= 10) {
             achievementCount++;
         }
         
-        // Achievement: Study Streak - has studied on consecutive days
-        // For now, we'll just check if they have at least 3 sessions
-        if (allSessions.length >= 3) {
+    // Achievement 4: Studied for at least 10 hours total
+    const totalMinutes = (allSessions || []).reduce((total, session) => {
+      return total + (parseInt(session.duration) || 0);
+    }, 0);
+    
+    if (totalMinutes >= 600) { // 10 hours = 600 minutes
             achievementCount++;
         }
         
-        // Achievement: Knowledge Seeker - has revised sessions
-        const hasRevisions = allSessions.some(session => 
-            session.status === 'revised' || (session.revisions && session.revisions.length > 0)
-        );
-        if (hasRevisions) {
+    // Achievement 5: Completed at least 3 labs
+    const completedLabs = (allSessions || []).filter(session => 
+      session.type === 'lab' && session.status === 'completed'
+    ).length;
+    
+    if (completedLabs >= 3) {
+      achievementCount++;
+    }
+    
+    // Achievement 6: Revised content at least 5 times
+    const revisions = (allSessions || []).reduce((total, session) => {
+      return total + (session.revisions ? session.revisions.length : 0);
+    }, 0);
+    
+    if (revisions >= 5) {
             achievementCount++;
         }
         
         achievementsCountElement.textContent = achievementCount;
+  } catch (error) {
+    console.error('Error updating achievements count:', error);
+    achievementsCountElement.textContent = '0';
     }
 }
 
 // Toggle sidebar function
 function toggleSidebar() {
-    const sidebarNav = document.querySelector('.sidebar-nav');
+  const sidebar = document.querySelector('.sidebar');
+  
+  if (!sidebar) return;
+  
+  // Check if sidebar overlay exists, if not create it
+  let overlay = document.querySelector('.sidebar-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+    
+    // Add click event to close sidebar when overlay is clicked
+    overlay.addEventListener('click', closeSidebar);
+  }
+  
+  // Toggle sidebar active state
+  if (sidebar.classList.contains('active')) {
+    sidebar.classList.remove('active');
+    overlay.classList.remove('active');
+    document.body.style.overflow = ''; // Re-enable scrolling
+  } else {
+    sidebar.classList.add('active');
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    
+    // Make sure sidebar is visible without scrolling
+    sidebar.style.top = '0';
+    
+    // Ensure sidebar nav is visible in mobile view
+    const sidebarNav = sidebar.querySelector('.sidebar-nav');
     if (sidebarNav) {
-        if (sidebarNav.style.display === 'none' || !sidebarNav.style.display) {
-            // Show sidebar with animation
-            sidebarNav.style.display = 'block';
-            sidebarNav.classList.add('active');
-            
-            // Change hamburger icon to X
-            const hamburgerIcon = document.querySelector('#hamburger-menu i');
-            if (hamburgerIcon) {
-                hamburgerIcon.className = 'fas fa-times';
-            }
-            
-            // Close sidebar when clicking outside
-            setTimeout(() => {
-                document.addEventListener('click', closeSidebarOnClickOutside);
-            }, 100);
-        } else {
-            closeSidebar();
-        }
+      sidebarNav.classList.add('active');
     }
+  }
+  
+  // Toggle hamburger icon
+  const hamburgerBtn = document.getElementById('hamburger-menu');
+  if (hamburgerBtn) {
+    const icon = hamburgerBtn.querySelector('i');
+    if (icon) {
+      if (sidebar.classList.contains('active')) {
+        icon.className = 'fas fa-times'; // Change to X icon when sidebar is open
+      } else {
+        icon.className = 'fas fa-bars'; // Change back to bars when sidebar is closed
+      }
+    }
+  }
+  
+  // Prevent page scrolling when sidebar is open on mobile
+  if (window.innerWidth <= 768) {
+    if (sidebar.classList.contains('active')) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+  }
 }
 
 // Close sidebar
 function closeSidebar() {
-    const sidebarNav = document.querySelector('.sidebar-nav');
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.querySelector('.sidebar-overlay');
+  
+  if (sidebar) {
+    sidebar.classList.remove('active');
+    
+    // Also ensure sidebar nav is closed
+    const sidebarNav = sidebar.querySelector('.sidebar-nav');
     if (sidebarNav) {
-        sidebarNav.classList.remove('active');
-        sidebarNav.style.display = 'none';
-        
-        // Change X icon back to hamburger
-        const hamburgerIcon = document.querySelector('#hamburger-menu i');
-        if (hamburgerIcon) {
-            hamburgerIcon.className = 'fas fa-bars';
-        }
-        
-        // Remove click outside event listener
-        document.removeEventListener('click', closeSidebarOnClickOutside);
+      sidebarNav.classList.remove('active');
     }
+  }
+  
+  if (overlay) {
+    overlay.classList.remove('active');
+  }
+  
+  // Reset hamburger icon
+  const hamburgerBtn = document.getElementById('hamburger-menu');
+  if (hamburgerBtn) {
+    const icon = hamburgerBtn.querySelector('i');
+    if (icon) {
+      icon.className = 'fas fa-bars';
+    }
+  }
+  
+  document.body.style.overflow = ''; // Re-enable scrolling
 }
 
 // Close sidebar when clicking outside
 function closeSidebarOnClickOutside(event) {
-    const sidebarNav = document.querySelector('.sidebar-nav');
+    // Only handle in mobile view
+    if (window.innerWidth > 768) return;
+    
+    const sidebar = document.querySelector('.sidebar');
     const hamburgerBtn = document.getElementById('hamburger-menu');
     
-    if (sidebarNav && hamburgerBtn) {
-        // Check if click is outside sidebar and hamburger button
-        if (!sidebarNav.contains(event.target) && event.target !== hamburgerBtn && !hamburgerBtn.contains(event.target)) {
+    if (sidebar && hamburgerBtn) {
+        // Check if click is outside sidebar and not on hamburger button
+        if (!sidebar.contains(event.target) && !hamburgerBtn.contains(event.target)) {
             closeSidebar();
         }
     }
@@ -4810,6 +6054,81 @@ function makeAllImagesClickable(containerSelector) {
   
   const images = container.querySelectorAll('img');
   images.forEach(img => makeImageClickable(img));
+}
+
+// Function to handle URL hash changes
+function handleUrlHash() {
+    const hash = window.location.hash.substring(1); // Remove the # symbol
+    
+    if (hash) {
+        // Find and activate corresponding navigation item
+        const navItem = document.querySelector(`.sidebar-nav li[data-section="${hash}"]`);
+        if (navItem) {
+            // Update active navigation item
+            navigationItems.forEach(item => {
+                item.classList.remove('active');
+            });
+            navItem.classList.add('active');
+            
+            // Show selected section
+            contentSections.forEach(section => {
+                section.classList.remove('active');
+                if (section.id === hash) {
+                    section.classList.add('active');
+                }
+            });
+            
+            // Initialize the section if needed
+            if (hash === 'reports') {
+                // Get the active time range
+                const activeTimeBtn = document.querySelector('.time-btn.active');
+                const timeRange = activeTimeBtn ? activeTimeBtn.getAttribute('data-range') : 'week';
+                updateReports(timeRange);
+            } else if (hash === 'study-buddy') {
+                renderStudySessions();
+            } else if (hash === 'dashboard') {
+                initializeDashboard();
+            }
+        }
+    } else {
+        // Default to dashboard
+        navigationItems.forEach(item => {
+            if (item.dataset.section === 'dashboard') {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+        
+        contentSections.forEach(section => {
+            if (section.id === 'dashboard') {
+                section.classList.add('active');
+                initializeDashboard();
+            } else {
+                section.classList.remove('active');
+            }
+        });
+    }
+}
+
+// Function to setup hash-based navigation
+function setupHashNavigation() {
+    navigationItems.forEach(item => {
+        const originalClickHandler = item.onclick;
+        
+        // Replace the click handler with one that updates the URL hash
+        item.onclick = function(event) {
+            const sectionId = this.dataset.section;
+            
+            // Update URL hash without triggering hashchange event
+            history.pushState(null, null, `#${sectionId}`);
+            
+            // Call the original click handler if it exists
+            if (typeof originalClickHandler === 'function') {
+                originalClickHandler.call(this, event);
+            }
+        };
+    });
 }
 
 // Rest of your existing functions... 

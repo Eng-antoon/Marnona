@@ -333,92 +333,77 @@ export const getRevisions = async (sessionId) => {
   }
 };
 
-// Get daily activity statistics
-export const getDailyActivity = async (days = 7) => {
+// Function to get daily activity data for a specified number of days
+export async function getDailyActivity(days = 7, forceRefresh = false) {
   try {
-    const result = {};
-    const today = new Date();
+    // Check if data is already in cache and not forcing refresh
+    if (!forceRefresh) {
+      const cachedData = sessionStorage.getItem(`dailyActivity_${days}`);
+      if (cachedData) {
+        console.log('Using cached daily activity data');
+        return JSON.parse(cachedData);
+      }
+    }
     
-    // Initialize the result object with zero counts for each day
+    // Fetch all sessions
+    const sessionsSnapshot = await getDocs(collection(db, 'sessions'));
+    
+    // Generate date range
+    const today = new Date();
+    const dateRange = [];
+    
     for (let i = 0; i < days; i++) {
       const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      result[dateStr] = { sessions: 0, revisions: 0, totalTime: 0 };
+      date.setDate(today.getDate() - i);
+      dateRange.unshift(date.toISOString().split('T')[0]); // Format as YYYY-MM-DD
     }
     
-    if (isOnline) {
-      // Get the cutoff date (e.g., 7 days ago)
-      const cutoffDate = new Date(today);
-      cutoffDate.setDate(cutoffDate.getDate() - days);
-      
-      // Query sessions created in the last 'days' days
-      const sessionsQuery = query(
-        collection(db, "sessions"),
-        where("createdAt", ">=", cutoffDate)
-      );
-      
-      const sessionsSnapshot = await getDocs(sessionsQuery);
-      sessionsSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        if (data.createdAt) {
-          const dateStr = new Date(data.createdAt.toDate()).toISOString().split('T')[0];
-          if (result[dateStr]) {
-            result[dateStr].sessions += 1;
-          }
-        }
-      });
-      
-      // Query revisions from the last 'days' days
-      const revisionsQuery = query(
-        collection(db, "revisions"),
-        where("date", ">=", cutoffDate)
-      );
-      
-      const revisionsSnapshot = await getDocs(revisionsQuery);
-      revisionsSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        if (data.date) {
-          const dateStr = new Date(data.date.toDate()).toISOString().split('T')[0];
-          if (result[dateStr]) {
-            result[dateStr].revisions += 1;
-            result[dateStr].totalTime += data.duration || 0;
-          }
-        }
-      });
-    } else {
-      // Use local storage
-      const sessions = getLocalSessions();
-      const revisions = getLocalRevisions();
-      
-      // Process sessions
-      sessions.forEach(session => {
-        if (session.createdAt) {
-          const dateStr = new Date(session.createdAt).toISOString().split('T')[0];
-          if (result[dateStr]) {
-            result[dateStr].sessions += 1;
-          }
-        }
-      });
-      
-      // Process revisions
-      revisions.forEach(revision => {
-        if (revision.date) {
-          const dateStr = new Date(revision.date).toISOString().split('T')[0];
-          if (result[dateStr]) {
-            result[dateStr].revisions += 1;
-            result[dateStr].totalTime += revision.duration || 0;
-          }
-        }
-      });
-    }
+    // Initialize activity data object with all dates in range
+    const activityData = {};
+    dateRange.forEach(date => {
+      activityData[date] = { sessions: 0, revisions: 0 };
+    });
     
-    return result;
+    // Process all sessions
+    sessionsSnapshot.forEach(doc => {
+      const session = doc.data();
+      const sessionDate = new Date(session.date).toISOString().split('T')[0];
+      
+      // Check if session date is within range
+      if (dateRange.includes(sessionDate)) {
+        // Count sessions
+        activityData[sessionDate].sessions = (activityData[sessionDate].sessions || 0) + 1;
+        
+        // Count revisions if they exist
+        if (session.revisions && Array.isArray(session.revisions)) {
+          session.revisions.forEach(revision => {
+            const revisionDate = new Date(revision.date).toISOString().split('T')[0];
+            if (dateRange.includes(revisionDate)) {
+              activityData[revisionDate].revisions = (activityData[revisionDate].revisions || 0) + 1;
+            }
+          });
+          }
+        }
+      });
+      
+    // Cache the data
+    sessionStorage.setItem(`dailyActivity_${days}`, JSON.stringify(activityData));
+    
+    return activityData;
   } catch (error) {
-    console.error("Error getting daily activity:", error);
-    return {};
+    console.error('Error getting daily activity data:', error);
+    // Return empty data structure on error
+    const emptyData = {};
+    const today = new Date();
+    for (let i = 0; i < days; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      const dateString = date.toISOString().split('T')[0];
+      emptyData[dateString] = { sessions: 0, revisions: 0 };
+    }
+    return emptyData;
   }
-};
+}
 
 // Get statistics for a specific course
 export const getCourseStats = async (courseId) => {

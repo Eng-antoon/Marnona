@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Marnona's Study Buddy</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -24,8 +24,8 @@
                     <li data-section="dashboard" class="active"><i class="fas fa-chart-line"></i> Dashboard</li>
                     <li data-section="courses"><i class="fas fa-book"></i> Courses</li>
                     <li data-section="study-buddy"><i class="fas fa-user-graduate"></i> Study Buddy</li>
-                    <li data-section="ai-help"><i class="fas fa-robot"></i> AI Help</li>
-                    <li data-section="reports"><i class="fas fa-chart-bar"></i> Reports</li>
+                    <!-- <li data-section="ai-help"><i class="fas fa-robot"></i> AI Help</li>
+                    <li data-section="reports"><i class="fas fa-chart-bar"></i> Reports</li> -->
                 </ul>
             </nav>
             <div class="sidebar-footer">
@@ -39,7 +39,7 @@
         <main class="main-content">
             <!-- Dashboard Section -->
             <section id="dashboard" class="content-section active">
-                <h1>Your Study Dashboard</h1>
+                <h1>Marnona's Study Buddy</h1>
                 <div class="dashboard-greeting">
                     <h2>Hello, Marnona!</h2>
                     <p class="greeting-message">You're doing an incredible job! Keep up the amazing work.</p>
@@ -73,16 +73,21 @@
                         <h3>Study Activity</h3>
                         <canvas id="activity-chart"></canvas>
                     </div>
-                    <div class="chart-container">
-                        <h3>Course Progress</h3>
-                        <canvas id="progress-chart"></canvas>
-                    </div>
                 </div>
 
                 <div class="recent-activity">
                     <h3>Recent Activity</h3>
                     <div id="recent-activity-list" class="activity-list">
                         <!-- Activity items will be populated here -->
+                    </div>
+                </div>
+                
+                <!-- Mobile Footer (displays only on mobile) -->
+                <div class="mobile-footer">
+                    <p class="inspiration-quote">The future of pharmacy is in your hands!</p>
+                    <p class="motivation-text">You've been amazing today!</p>
+                    <div class="streak-counter">
+                        <i class="fas fa-fire"></i> <span id="mobile-streak-count">0</span> day streak
                     </div>
                 </div>
             </section>
@@ -243,7 +248,7 @@
             </section>
 
             <!-- AI Help Section -->
-            <section id="ai-help" class="content-section">
+            <!-- <section id="ai-help" class="content-section">
                 <h1>AI Study Assistant</h1>
                 <p class="section-description">Get help with any pharmacy topic by asking your AI assistant!</p>
 
@@ -263,10 +268,12 @@
                         <button id="ai-send-btn" class="btn primary-btn"><i class="fas fa-paper-plane"></i></button>
                     </div>
                 </div>
-            </section>
+            </section> -->
 
             <!-- Reports Section -->
-            <section id="reports" class="content-section">
+
+
+            <!-- <section id="reports" class="content-section">
                 <h1>Study Reports</h1>
                 <p class="section-description">Analyze your study patterns and track your progress.</p>
 
@@ -300,12 +307,12 @@
                 <div class="reports-insights">
                     <h3>Study Insights</h3>
                     <div id="study-insights" class="insights-container">
-                        <!-- Insights will be populated here -->
+                        
                     </div>
                 </div>
             </section>
         </main>
-    </div>
+    </div> -->
 
     <!-- Add Session Modal -->
     <div id="add-session-modal" class="modal">
