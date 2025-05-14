@@ -6,13 +6,13 @@ import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCD-CHwd3jko6EK_ckHWFZC0i9tqZwt2rw",
-  authDomain: "marnona-630a4.firebaseapp.com",
-  projectId: "marnona-630a4",
-  storageBucket: "marnona-630a4.appspot.com", // Fixed storage bucket URL
-  messagingSenderId: "970601791759",
-  appId: "1:970601791759:web:08ae924361146d8dd83e7a",
-  measurementId: "G-RCHJF0MEMD"
+  apiKey: "AIzaSyBilZVQAcqi7WrZIDHu8vrFbFvRmOEAm5A",
+  authDomain: "marnonanew-42de4.firebaseapp.com",
+  projectId: "marnonanew-42de4",
+  storageBucket: "marnonanew-42de4.firebasestorage.app",
+  messagingSenderId: "313500492294",
+  appId: "1:313500492294:web:7e00af2d66bb54268c1987",
+  measurementId: "G-L78NRMML9T"
 };
 
 // Initialize Firebase
