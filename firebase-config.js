@@ -21,6 +21,9 @@ const analytics = getAnalytics(app);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+// Export the database instance
+export { db };
+
 // Local storage keys
 const COURSES_STORAGE_KEY = "marnona_courses";
 const SESSIONS_STORAGE_KEY = "marnona_sessions";
@@ -41,7 +44,12 @@ window.addEventListener('offline', () => {
 
 // Initialize data as soon as the app loads
 document.addEventListener('DOMContentLoaded', () => {
-  initializeData();
+  // Initialize data to make sure courses are in the database
+  initializeData().then(() => {
+    console.log("Data initialization complete");
+  }).catch(error => {
+    console.error("Error during data initialization:", error);
+  });
 });
 
 // Helper functions for database operations with offline support
@@ -200,6 +208,9 @@ export const getSessions = async () => {
 // Add Revision to a study session
 export const addRevision = async (sessionId, revisionData) => {
   try {
+    // Ensure duration is treated as an integer
+    revisionData.duration = parseInt(revisionData.duration);
+    
     if (isOnline) {
       // Add the revision document to the revisions collection
       const revisionRef = await addDoc(collection(db, "revisions"), {
@@ -214,8 +225,8 @@ export const addRevision = async (sessionId, revisionData) => {
       
       if (sessionSnap.exists()) {
         const sessionData = sessionSnap.data();
-        const totalTime = (sessionData.totalTime || 0) + revisionData.duration;
-        const revisions = (sessionData.revisions || 0) + 1;
+        const totalTime = parseInt(sessionData.totalTime || 0) + parseInt(revisionData.duration);
+        const revisions = parseInt(sessionData.revisions || 0) + 1;
         
         await updateDoc(sessionRef, {
           totalTime,
@@ -238,8 +249,8 @@ export const addRevision = async (sessionId, revisionData) => {
       const sessions = getLocalSessions();
       const sessionIndex = sessions.findIndex(s => s.id === sessionId);
       if (sessionIndex !== -1) {
-        sessions[sessionIndex].totalTime = (sessions[sessionIndex].totalTime || 0) + revisionData.duration;
-        sessions[sessionIndex].revisions = (sessions[sessionIndex].revisions || 0) + 1;
+        sessions[sessionIndex].totalTime = parseInt(sessions[sessionIndex].totalTime || 0) + parseInt(revisionData.duration);
+        sessions[sessionIndex].revisions = parseInt(sessions[sessionIndex].revisions || 0) + 1;
         sessions[sessionIndex].lastStudied = new Date().toISOString();
         saveLocalSessions(sessions);
       }
@@ -261,8 +272,8 @@ export const addRevision = async (sessionId, revisionData) => {
       const sessions = getLocalSessions();
       const sessionIndex = sessions.findIndex(s => s.id === sessionId);
       if (sessionIndex !== -1) {
-        sessions[sessionIndex].totalTime = (sessions[sessionIndex].totalTime || 0) + revisionData.duration;
-        sessions[sessionIndex].revisions = (sessions[sessionIndex].revisions || 0) + 1;
+        sessions[sessionIndex].totalTime = parseInt(sessions[sessionIndex].totalTime || 0) + parseInt(revisionData.duration);
+        sessions[sessionIndex].revisions = parseInt(sessions[sessionIndex].revisions || 0) + 1;
         sessions[sessionIndex].lastStudied = new Date().toISOString();
         saveLocalSessions(sessions);
       }
@@ -605,6 +616,86 @@ export const updateSessionStatus = async (sessionId, status) => {
       }
       
       saveLocalSessions(sessions);
+    }
+    
+    return false;
+  }
+};
+
+// Update a session's completion details
+export const updateSessionCompletionDetails = async (sessionId, completionData) => {
+  try {
+    if (isOnline) {
+      const sessionRef = doc(db, "sessions", sessionId);
+      
+      // Prepare update data
+      const updateData = {
+        completionTime: completionData.completionTime,
+        completionNotes: completionData.completionNotes || ""
+      };
+      
+      // Handle date conversion properly
+      if (completionData.completionDate) {
+        if (typeof completionData.completionDate === 'string') {
+          updateData.completionDate = new Date(completionData.completionDate);
+        } else {
+          updateData.completionDate = completionData.completionDate;
+        }
+      } else {
+        updateData.completionDate = new Date();
+      }
+      
+      await updateDoc(sessionRef, updateData);
+    }
+    
+    // Update local storage regardless of online status
+    const sessions = getLocalSessions();
+    const sessionIndex = sessions.findIndex(s => s.id === sessionId);
+    
+    if (sessionIndex !== -1) {
+      sessions[sessionIndex].completionTime = completionData.completionTime;
+      sessions[sessionIndex].completionNotes = completionData.completionNotes || "";
+      
+      if (completionData.completionDate) {
+        if (typeof completionData.completionDate === 'string') {
+          sessions[sessionIndex].completionDate = completionData.completionDate;
+        } else {
+          sessions[sessionIndex].completionDate = completionData.completionDate.toISOString();
+        }
+      } else {
+        sessions[sessionIndex].completionDate = new Date().toISOString();
+      }
+      
+      saveLocalSessions(sessions);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error updating session completion details:", error);
+    
+    // Still update local storage even if Firebase fails
+    try {
+      const sessions = getLocalSessions();
+      const sessionIndex = sessions.findIndex(s => s.id === sessionId);
+      
+      if (sessionIndex !== -1) {
+        sessions[sessionIndex].completionTime = completionData.completionTime;
+        sessions[sessionIndex].completionNotes = completionData.completionNotes || "";
+        
+        if (completionData.completionDate) {
+          if (typeof completionData.completionDate === 'string') {
+            sessions[sessionIndex].completionDate = completionData.completionDate;
+          } else {
+            sessions[sessionIndex].completionDate = completionData.completionDate.toISOString();
+          }
+        } else {
+          sessions[sessionIndex].completionDate = new Date().toISOString();
+        }
+        
+        saveLocalSessions(sessions);
+      }
+    } catch (localError) {
+      console.error("Error updating local storage:", localError);
     }
     
     return false;
@@ -1150,6 +1241,9 @@ export const markLabAsStudied = async (labId, studyData) => {
 // Mark a lecture as revised
 export const markLectureAsRevised = async (lectureId, revisionData) => {
   try {
+    // Ensure revisionTime is treated as an integer
+    revisionData.revisionTime = parseInt(revisionData.revisionTime);
+    
     if (isOnline) {
       const lectureRef = doc(db, "lectures", lectureId);
       
@@ -1253,6 +1347,9 @@ export const markLectureAsRevised = async (lectureId, revisionData) => {
 // Mark a lab as revised
 export const markLabAsRevised = async (labId, revisionData) => {
   try {
+    // Ensure revisionTime is treated as an integer
+    revisionData.revisionTime = parseInt(revisionData.revisionTime);
+    
     if (isOnline) {
       const labRef = doc(db, "labs", labId);
       
@@ -1397,4 +1494,4 @@ function removeLocalSessionsForCourse(courseId) {
   saveLocalSessions(updatedSessions);
 }
 
-export { db, auth }; 
+export { auth }; 
